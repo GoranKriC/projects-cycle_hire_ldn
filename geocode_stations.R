@@ -1,13 +1,12 @@
-# 
-libs <- c('RMySQL', 'ggmap', 'stringr')
-libs <- lapply(libs, require, character.only = TRUE)
-rm(libs) 
+lapply(c('RMySQL', 'ggmap', 'stringr'), require, character.only = TRUE)
 
 extract_uk_postcode <- function(uk_address){
     # postcode should always be SEVEN characters long.
-    # IF postcode is GU16 7HZ then GU ==> Area, 16 ==> District, 7 ==> Sector, HZ ==> Unit. 
-    #  - GU16 is the OUT code, it can assume be several different formats and be anywhere from 2 to 4 alphanumeric characters long
-    #  - 7HZ is the IN code, it is always 1 numeric character followed by 2 alphabetic character
+    # IF postcode is GU16 7HZ then: GU ==> Area, GU16 ==> District, GU167 ==> Sector, GU167HZ ==> Unit.
+    #  - GU16 is the OUTward code, it can assume be several different formats and be anywhere from 2 to 4 alphanumeric characters long
+    #         It identifies the town or district to which the letter is to be sent for further sorting
+    #  - 7HZ  is the INward code, it is always 1 numeric character followed by 2 alphabetic character. 
+    #         It assists in the delivery of post within a postal district.
     result <- NA
     if(str_sub(uk_address, -4) == ', UK') uk_address <- substr(uk_address, 1, nchar(uk_address) - 4)
     pc <- unlist(strsplit(uk_address, ' '))
