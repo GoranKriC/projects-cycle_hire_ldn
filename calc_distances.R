@@ -46,6 +46,7 @@ for(idx in 1:nrow(stations)){
     )
     dbSendQuery(db_conn, strSQL)
     print(paste('Done! Distance is', outg[1], 'meters and time is', outg[2], 'seconds'))
+    Sys.sleep(runif(1, 0.05, 0.25))
 }
 
 # Update counting of rides
