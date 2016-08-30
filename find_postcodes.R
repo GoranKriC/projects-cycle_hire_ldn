@@ -1,5 +1,6 @@
 lapply(c('data.table', 'DT', 'leaflet', 'RMySQL', 'shiny'), require, character.only = TRUE)
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
+pal <- colorFactor(c('navy', 'red'), domain = c('station', 'neighbour') )
 
 strSQL <- "
     SELECT * 
@@ -20,9 +21,7 @@ ui <- fluidPage(
         leafletOutput('st_map')
 )
 
-server <- function(input, output) {
-    
-    mp <- leaflet() %>% addProviderTiles("OpenStreetMap.BlackAndWhite")
+server <- function(input, output, session) {
     
     y <- stations[, .(station_id, id = paste('<a href="http://maps.google.com/maps?z=18&t=m&q=loc:', lat, ',', long, '" target="_blank">', station_id, '</a>', sep = ''), address, place, area, started = start_date, docks) ][order(area, place)]
 
@@ -56,17 +55,46 @@ server <- function(input, output) {
     
     output$st_map <- renderLeaflet({
         if(length(input$st_tbl_rows_selected ) == 0) return(NULL)
-        mp %>% 
-            setView(lng = stations[station_id == selID(), long], lat = stations[station_id == selID(), lat], zoom = 18) %>%
-            addMarkers(lng = stations[station_id == selID(), long], lat = stations[station_id == selID(), lat], popup = stations[station_id == selID(), address])
+        st_lon = stations[station_id == selID(), long]
+        st_lat = stations[station_id == selID(), lat]
+        locations <- data.frame(postcode = '???', type = 'station', lon = st_lon, lat = st_lat, distance = 0 )
+        db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'geography')
+        strSQL <- paste("
+            SELECT postcode, 'neighbour' AS type, X_lon AS lon, Y_lat AS lat,
+                (3959 * ACOS ( 
+                    COS ( RADIANS(", st_lat, ") ) * COS( RADIANS( Y_lat ) )
+                    * COS( RADIANS( X_lon ) - RADIANS(", st_lon, ") )
+                    + SIN ( RADIANS(", st_lat, ") )
+                    * SIN( RADIANS( Y_lat ) )
+                )) AS distance
+            FROM postcodes 
+            WHERE is_active
+            HAVING distance < 0.1 
+            ORDER BY distance 
+            LIMIT 20;
+        ")
+        tmp <- dbGetQuery(db_conn,  strSQL)
+        dbDisconnect(db_conn)
+        locations <- rbind(locations, tmp)
+        mp <- locations %>% leaflet() %>% addProviderTiles("OpenStreetMap.BlackAndWhite") %>%
+            setView(lng = st_lon, lat = st_lat, zoom = 18) %>%
+            addCircleMarkers(
+                radius = ~ifelse(type == 'station', 10, 6),
+                color = ~pal(type),
+                stroke = TRUE, 
+                fillOpacity = 0.8,
+                popup = ~postcode
+            )
     })
     
     observeEvent(
         input$btnUpdate,
         {
+            if(length(input$st_tbl_rows_selected ) == 0) return(NULL)
             db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
             dbSendQuery(db_conn, paste('UPDATE stations SET postcode = "', input$txtPostcode, '" WHERE station_id = ', selID(), sep = '') )
             dbDisconnect(db_conn)
+            updateTextInput(session, 'txtPostcode', value = '')
         }
     )
     
