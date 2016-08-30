@@ -1,11 +1,6 @@
 # 
-rm(list = ls())
-gc()
-libs <- c('data.table', 'dplyr', 'jsonlite', 'leaflet', 'RMySQL')
-lapply(libs, require, character.only = TRUE)
-rm(libs)
-all_cons <- dbListConnections(MySQL())
-for(con in all_cons) dbDisconnect(con)
+
+lapply(c('data.table', 'dplyr', 'jsonlite', 'leaflet', 'RMySQL'), require, character.only = TRUE)
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
 stations <- dbReadTable(db_conn, 'stations')
