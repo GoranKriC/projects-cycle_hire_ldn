@@ -13,7 +13,7 @@ db_conn = dbConnect(MySQL(), host='192.168.0.200', user='datamaps', password='mS
 # Fill "distances" with stations not in it (first create cross join of all valid stations, then insert only the new ones)
 strSQL <- "
     INSERT IGNORE INTO distances
-        SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0
+        SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
         FROM stations sts CROSS JOIN stations ste
         WHERE sts.lat != 0 AND ste.lat != 0 AND sts.station_id != ste.station_id
         ORDER BY start_station_id, end_station_id
@@ -49,16 +49,9 @@ for(idx in 1:nrow(stations)){
     Sys.sleep(runif(1, 0.05, 0.25))
 }
 
-# Update counting of rides
-strSQL <- "
-    UPDATE distances dt JOIN (
-        SELECT start_station_id, end_station_id, count(*) AS c
-        FROM hires
-        GROUP BY start_station_id, end_station_id
-    ) t ON t.start_station_id = dt.start_station_id AND t.end_station_id = dt.end_station_id 
-    SET dt.counting = t.c
-"
-dbSendQuery(db_conn, strSQL)
+# UPDATE ALL CONNECTED INFORMATION
+setwd('/home/datamaps//projects-london_cycle_hire/')
+source('additional_queries.R')
 
 # BYE BYE ...
 dbDisconnect(db_conn)
