@@ -5,7 +5,7 @@ pal <- colorFactor(c('navy', 'red'), domain = c('station', 'neighbour') )
 strSQL <- "
     SELECT * 
     FROM stations 
-    WHERE OA_id = '0' AND lat > 0
+    WHERE is_active AND lat > 0 -- AND OA_id = '0'
     ORDER BY postcode
 "
 stations <- data.table(dbGetQuery(db_conn, strSQL) )
@@ -18,12 +18,12 @@ ui <- fluidPage(
             column(2, actionButton('btnUpdate', 'update station') ),
             column(2, actionButton('btnUpdateOA', 'update OAs') )
         ), hr(),
-        leafletOutput('st_map')
+        leafletOutput('st_map', height = '600px')
 )
 
 server <- function(input, output, session) {
     
-    y <- stations[, .(station_id, id = paste('<a href="http://maps.google.com/maps?z=18&t=m&q=loc:', lat, ',', long, '" target="_blank">', station_id, '</a>', sep = ''), address, place, area, started = start_date, docks) ][order(area, place)]
+    y <- stations[, .(station_id, id = paste('<a href="http://maps.google.com/maps?z=18&t=m&q=loc:', lat, ',', long, '" target="_blank">', station_id, '</a>', sep = ''), address, place, area, started = first_hire, docks) ][order(area, place)]
 
     output$st_tbl <- renderDataTable({
         datatable(y,
@@ -57,7 +57,7 @@ server <- function(input, output, session) {
         if(length(input$st_tbl_rows_selected ) == 0) return(NULL)
         st_lon = stations[station_id == selID(), long]
         st_lat = stations[station_id == selID(), lat]
-        locations <- data.frame(postcode = '???', type = 'station', lon = st_lon, lat = st_lat, distance = 0 )
+        locations <- data.frame(postcode = stations[station_id == selID(), postcode], type = 'station', lon = st_lon, lat = st_lat, distance = 0 )
         db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'geography')
         strSQL <- paste("
             SELECT postcode, 'neighbour' AS type, X_lon AS lon, Y_lat AS lat,
