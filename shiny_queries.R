@@ -1,4 +1,3 @@
-# 
 library('RMySQL')
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
