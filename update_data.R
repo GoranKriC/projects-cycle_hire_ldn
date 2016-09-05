@@ -1,9 +1,6 @@
-# 
 rm(list = ls())
 gc()
-libs <- c('data.table', 'jsonlite', 'RMySQL')
-libs <- lapply(libs, require, character.only = TRUE)
-rm(libs)
+lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
 # LOAD AND STRUCTURE DATA ------------------------------------------
@@ -54,7 +51,16 @@ if(format(Sys.time(), '%H') == '00' & format(Sys.time(), '%M') < 15){
     stations[, `:=`(freeDocks = NULL, bikes = NULL)]
     dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpS")
     dbWriteTable(db_conn, 'tmpS', stations, row.names = FALSE)
-    dbSendQuery(db_conn, "INSERT IGNORE INTO stations SELECT station_id, terminal_id, lat, `long`, '', '', OA_id, place, area, docks, 0 FROM tmpS")
+    dbSendQuery(db_conn, "
+        INSERT IGNORE INTO stations (station_id, terminal_id, lat, `long`, place, area, docks)
+            SELECT station_id, terminal_id, lat, `long`, place, area, docks
+            FROM tmpS
+    ")
+    dbSendQuery(db_conn, "
+        UPDATE stations st 
+           JOIN tmpS t ON st.station_id = t.station_id
+        SET st.docks = t.docks
+    ")
     stations <- stations[docks > 0, .(station_id, docks)]
     setkey(stations, 'station_id')
     docks <- data.table(dbGetQuery(db_conn, "SELECT station_id, docks AS oldDocks FROM docks"), key = 'station_id')
