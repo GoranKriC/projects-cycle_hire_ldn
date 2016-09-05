@@ -29,13 +29,28 @@ for(idx in 1:nrow(stations)){
     postcode <- extract_uk_postcode(address)
     strSQL <- paste( "
         UPDATE stations SET address = '", gsub("'", "''", address), "'", 
-        ifelse(is.na(postcode), "", paste(", postcode = '", postcode, "'", sep = '')), 
+        ifelse(is.na(postcode), " NULL ", paste(", Gpostcode = '", postcode, "'", sep = '')), 
         " WHERE station_id = ", stations[idx, 1],
         sep = '' 
     )
     dbSendQuery(db_conn, strSQL)
 }
-dbSendQuery(db_conn, "UPDATE stations st JOIN geography.postcodes pc ON pc.postcode = st.postcode SET st.OA_id = pc.OA_id")
+
+# THIS PART IS FOR UPDATING ALL G-POSTCODES STARTING FROM ALREADY KNOWN ADDRESS
+# dbSendQuery(db_conn, "UPDATE stations SET Gpostcode = NULL")
+# stations <- dbGetQuery(db_conn, "SELECT station_id, address FROM stations WHERE address != ''")
+# for(idx in 1:nrow(stations)){
+#     postcode <- extract_uk_postcode(stations[idx, 2])
+#     if(!is.na(postcode)){
+#         strSQL <- paste("
+#             UPDATE stations 
+#             SET Gpostcode = '", postcode, "'", 
+#             " WHERE station_id = ", stations[idx, 1],
+#             sep = '' 
+#         )
+#         dbSendQuery(db_conn, strSQL)
+#     }
+# }
 
 dbDisconnect(db_conn)
 rm(list = ls())
