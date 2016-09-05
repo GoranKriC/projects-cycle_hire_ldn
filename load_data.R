@@ -36,54 +36,12 @@ for(fl in 1:length(filenames)){
     print(paste('Saved', nrow(dataset), 'records for file', fl))
 }
 
-dbSendQuery(db_conn, "
-    UPDATE stations st JOIN ( 
-        SELECT start_station_id, MIN(start_day) AS sd FROM hires GROUP BY start_station_id
-    ) t ON t.start_station_id = st.station_id
-    SET st.start_date = t.sd
-")
+# UPDATE ALL CONNECTED INFORMATION
+setwd('/home/datamaps//projects-london_cycle_hire/')
+source('additional_queries.R')
 
 # BYE
 dbDisconnect(db_conn)
 rm(list = ls())
 gc()
 
-# for(fl in 1:length(filenames)){
-#     print(paste('Working on file', fl, 'out of', length(filenames)))
-#     dataset <- fread(filenames[fl])
-#     setnames(dataset, c('rental_id', 'duration', 'bike_id', 'end_date', 'end_station_id', 'end_station_name', 'start_date', 'start_station_id', 'start_station_name'))
-# }
-
-# # # FIRST VERSION
-# for(fl in 1:length(filenames)){
-#     print(paste('Working on file', fl, 'out of', length(filenames)))
-#     dataset <- fread(filenames[fl])
-#     setnames(dataset, c('rental_id', 'duration', 'bike_id', 'end_date', 'end_station_id', 'end_station_name', 'start_date', 'start_station_id', 'start_station_name'))
-#     dataset <- dataset[end_station_id > 0]
-#     dataset[, start_date := as.POSIXct(start_date, format = '%d/%m/%Y %H:%M')]
-#     dataset <- dataset[year(start_date) >= 2012]
-#     dataset[, end_date := start_date + duration]    
-#     tmp <- unique(dataset[, .(start_station_id, start_station_name)])
-#     for(idx in 1:nrow(tmp)){
-#         if(length(grep(':', tmp$start_station_name[idx])) == 0){
-#             tmp$start_station_name[idx] <- paste(tmp$start_station_name[idx], ': void')
-#         }
-#     }
-#     tmp <- cbind(
-#         tmp, 
-#         apply(
-#             matrix(unlist(strsplit(tmp$start_station_name, ':')), ncol = 2, byrow = TRUE), 
-#             2, 
-#             function(x) gsub("^\\s+|\\s+$", "", x) 
-#         )
-#     )
-#     tmp$start_station_name <- NULL
-#     setnames(tmp, c('station_id', 'place', 'area'))
-#     dbWriteTable(db_conn, 'stations', tmp, row.names = FALSE, append = TRUE, overwrite = FALSE)
-#     rm(tmp)
-#     dataset$start_station_name <- NULL    
-#     dataset$end_station_name <- NULL
-#     setcolorder(dataset, c('rental_id', 'bike_id', 'start_station_id', 'start_date', 'end_station_id', 'end_date', 'duration'))
-#     dbWriteTable(db_conn, 'hires', dataset, row.names = FALSE, append = TRUE, overwrite = FALSE)
-#     print(paste('Saved', nrow(dataset), 'records for file', fl))
-# }
