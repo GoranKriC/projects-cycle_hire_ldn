@@ -30,6 +30,11 @@ dbSendQuery(db_conn, "
 print('DONE!')
 
 print('************************************************')
+print('DELETING RIDES WITH DURATION = 0')
+dbSendQuery(db_conn, "DELETE FROM hires WHERE duration = 0")
+print('DONE!')
+
+print('************************************************')
 print('UPDATE CNT OF HIRES AND AVG DURATION IN <distances>') # AVG(CASE WHEN duration < 86400 THEN duration ELSE 86400 END)) to limit single hire duration to 24h
 dbSendQuery(db_conn, "
     UPDATE distances
@@ -106,8 +111,7 @@ dbSendQuery(db_conn, "
 print('DONE!')
 
 print('************************************************')
-print('')
-# UPDATE 'first_hire', 'last_hire', 'is_active'
+print('UPDATE first_hire, last_hire, is_active IN <stations>')
 dbSendQuery(db_conn, "
     UPDATE stations st JOIN ( 
     	SELECT start_station_id, MIN(start_day) AS sd, MAX(start_day) AS ed 
@@ -124,65 +128,63 @@ dbSendQuery(db_conn, "
 ")
 print('DONE!')
 
-
-
-
-
 print('************************************************')
-print('')
-dbSendQuery(db_conn, "TRUNCATE TABLE smr_bikes")
-dbSendQuery(db_conn, "
-    INSERT INTO smr_bikes 
-    	select start_day, bike_id, count(*) as counting
-    	from hires 
-    	group by start_day, bike_id
-")
-print('DONE!')
-
-print('************************************************')
-print('')
+print('CREATE DAILY SUMMARIES FROM STARTING POINTS')
 dbSendQuery(db_conn, "TRUNCATE TABLE smr_sStations")
 dbSendQuery(db_conn, "
     INSERT INTO smr_sStations 
-    	select start_day, start_station_id, count(*) as counting
-    	from hires 
-    	group by start_day, start_station_id
+    	SELECT start_day AS datefield, start_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	FROM hires 
+    	GROUP BY datefield, station_id
 ")
 print('DONE!')
 
 print('************************************************')
-print('')
+print('CREATE DAILY SUMMARIES TO ENDING POINTS')
 dbSendQuery(db_conn, "TRUNCATE TABLE smr_eStations")
 dbSendQuery(db_conn, "
     INSERT INTO smr_eStations 
-    	select start_day, end_station_id, count(*) as counting
-    	from hires 
-    	group by start_day, end_station_id
+    	SELECT end_day AS datefield, end_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	FROM hires 
+    	GROUP BY datefield, station_id
 ")
 print('DONE!')
 
-print('************************************************')
-print('')
-dbSendQuery(db_conn, "TRUNCATE TABLE ")
-dbSendQuery(db_conn, "
-    INSERT INTO 
-        SELECT glc.name AS borough, COUNT(*)
-        FROM hires h
-            JOIN stations st ON st.station_id = h.start_station_id
-            JOIN geography.lookups glk ON glk.OA_id = st.OA_id
-            JOIN geography.locations glc ON glc.id = glk.LA_id AND glc.`type` = 'LA'
-            GROUP BY borough
-")
-print('DONE!')
 
-print('************************************************')
-print('')
-dbSendQuery(db_conn, "TRUNCATE TABLE ")
-dbSendQuery(db_conn, "
-    INSERT INTO
 
-")
-print('DONE!')
+# print('************************************************')
+# print('')
+# dbSendQuery(db_conn, "TRUNCATE TABLE ")
+# dbSendQuery(db_conn, "
+#     INSERT INTO 
+#         SELECT glc.name AS borough, COUNT(*)
+#         FROM hires h
+#             JOIN stations st ON st.station_id = h.start_station_id
+#             JOIN geography.lookups glk ON glk.OA_id = st.OA_id
+#             JOIN geography.locations glc ON glc.id = glk.LA_id AND glc.`type` = 'LA'
+#             GROUP BY borough
+# ")
+# print('DONE!')
+
+# print('************************************************')
+# print('')
+# dbSendQuery(db_conn, "TRUNCATE TABLE smr_bikes")
+# dbSendQuery(db_conn, "
+#     INSERT INTO smr_bikes 
+#     	SELECT start_day AS datefield, bike_id, COUNT(*) AS hires, AVG(duration) AS duration
+#     	FROM hires 
+#     	GROUP BY datefield, bike_id
+# ")
+# print('DONE!')
+
+# print('************************************************')
+# print('')
+# dbSendQuery(db_conn, "TRUNCATE TABLE ")
+# dbSendQuery(db_conn, "
+#     INSERT INTO
+# 
+# ")
+# print('DONE!')
 
 print('BYE!')
 dbDisconnect(db_conn)
