@@ -8,9 +8,9 @@ distance.driving.google <- function(orig, dest){
     results[2] <- xmlValue(xmlChildren(xpathApply(xmlfile, "//duration")[[1]])$value)
     return(results)
 }
-db_conn = dbConnect(MySQL(), host='192.168.0.200', user='datamaps', password='mSt53dMP', dbname='londonCycleHire')
+db_conn2 = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
-# Fill "distances" with stations not in it (first create cross join of all valid stations, then insert only the new ones)
+# Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones)
 strSQL <- "
     INSERT IGNORE INTO distances
         SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
@@ -18,18 +18,18 @@ strSQL <- "
         WHERE sts.lat != 0 AND ste.lat != 0 AND sts.station_id != ste.station_id
         ORDER BY start_station_id, end_station_id
 "
-dbSendQuery(db_conn, strSQL)
+dbSendQuery(db_conn2, strSQL)
 
-# Extract from distances only the stations with a null distance
+# Extract from <distances> only the stations with a null distance
 strSQL <- "
     SELECT dt.start_station_id, sts.lat as lats, sts.`long` as longs, dt.end_station_id, ste.lat as late, ste.`long` as longe
     FROM distances dt
         JOIN stations sts ON sts.station_id = dt.start_station_id
         JOIN stations ste ON ste.station_id = dt.end_station_id
-    WHERE dt.distance = 0
+    WHERE dt.time = 0
     ORDER BY start_station_id, end_station_id
 "
-stations <- suppressWarnings(data.table(dbGetQuery(db_conn, strSQL) ) )
+stations <- suppressWarnings(data.table(dbGetQuery(db_conn2, strSQL) ) )
 
 # Update distance and riding time using google maps API (ggmap)
 for(idx in 1:nrow(stations)){
@@ -40,20 +40,14 @@ for(idx in 1:nrow(stations)){
     outg <- as.numeric(distance.driving.google(orig, dest))
     strSQL <- paste(
         "UPDATE distances SET distance =", outg[1],
-        ", ride_time =", outg[2],
-        "WHERE start_Station_id =", stations[idx, start_station_id],
+        ", time =", outg[2],
+        "WHERE start_station_id =", stations[idx, start_station_id],
         "AND end_station_id =", stations[idx, end_station_id]
     )
-    dbSendQuery(db_conn, strSQL)
+    dbSendQuery(db_conn2, strSQL)
     print(paste('Done! Distance is', outg[1], 'meters and time is', outg[2], 'seconds'))
     Sys.sleep(runif(1, 0.05, 0.25))
 }
 
-# UPDATE ALL CONNECTED INFORMATION
-setwd('/home/datamaps//projects-london_cycle_hire/')
-source('additional_queries.R')
-
 # BYE BYE ...
-dbDisconnect(db_conn)
-rm(list = ls())
-gc()
+dbDisconnect(db_conn2)
