@@ -1,12 +1,12 @@
 # This script process data from <http://cycling.data.tfl.gov.uk/>
 
-# DATA STILL MISSING BECAUSE OF TFL INCOMPETENTS:
-# - 6 is 7, real 6 (18/05-24/05) is missing
-# - 20 and 21 are the same days, real 21 (31/08-06/09) is missing
-
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
-setwd('/home/datamaps/data/londonCycleHire/')
+if(Sys.info()[['sysname']] == 'Windows'){
+    setwd("D:/data/UK/londonCycleHire")
+} else {
+    setwd('/home/datamaps/data/londonCycleHire/')
+}
 trim <- function(x) gsub('^\\s+|\\s+$', '', x)
 
 year_path <- '2016'
@@ -58,8 +58,6 @@ for(fl in 1:length(filenames)){
 }
 print(paste('Total records for the year: ', records_processed))
 
-setwd('/home/datamaps//projects-london_cycle_hire/')
-
 ##################################################
 # CLEAN AND UPDATE ALL CONNECTED INFORMATION
 #
@@ -98,6 +96,11 @@ dbSendQuery(db_conn, "DELETE FROM hires WHERE duration = 0")
 
 print('************************************************')
 print('UPDATE <distances> TABLE WITH NEW STATIONS')
+if(Sys.info()[['sysname']] == 'Windows'){
+    setwd('D:/R/projects/projects-london_cycle_hire/')
+} else {
+    setwd('/home/datamaps/projects-london_cycle_hire/')
+}
 source('calc_distances.R')
 
 print('************************************************')
