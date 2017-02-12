@@ -9,7 +9,7 @@ if(Sys.info()[['sysname']] == 'Windows'){
 }
 trim <- function(x) gsub('^\\s+|\\s+$', '', x)
 
-year_path <- '2016'
+year_path <- '2017'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
 records_processed <- 0
 for(fl in 1:length(filenames)){
@@ -219,16 +219,34 @@ print('CREATE DAILY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
 dbSendQuery(db_conn, "TRUNCATE TABLE smr_seStations")
 dbSendQuery(db_conn, "
     INSERT INTO smr_seStations 
-    	SELECT end_day AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	SELECT start_day AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
     	FROM hires 
-    	GROUP BY datefield, sStation_id, estation_id
+    	GROUP BY datefield, sStation_id, eStation_id
+")
+
+print('************************************************')
+print('CREATE MONTHLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
+dbSendQuery(db_conn, "TRUNCATE TABLE smrM_seStations")
+dbSendQuery(db_conn, "
+    INSERT INTO smrM_seStations 
+    	SELECT LEFT(start_day, 6) AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	FROM hires 
+    	GROUP BY datefield, sStation_id, eStation_id
+")
+
+print('************************************************')
+print('CREATE WEEKLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
+dbSendQuery(db_conn, "TRUNCATE TABLE smrW_seStations")
+dbSendQuery(db_conn, "
+    INSERT INTO smrW_seStations
+    	SELECT DATEwd AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	FROM hires h JOIN calendar c ON h.start_day = c.DATEd
+    	GROUP BY DATEwd, sStation_id, eStation_id
 ")
 
 
-
-print('DONE!')
-
 # BYE
+print('DONE!')
 dbDisconnect(db_conn)
 rm(list = ls())
 gc()
