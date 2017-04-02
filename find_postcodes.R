@@ -58,7 +58,7 @@ server <- function(input, output, session) {
         st_lon = stations[station_id == selID(), long]
         st_lat = stations[station_id == selID(), lat]
         locations <- data.frame(postcode = stations[station_id == selID(), postcode], type = 'station', lon = st_lon, lat = st_lat, distance = 0 )
-        db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'geography')
+        db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'geographyUK')
         strSQL <- paste("
             SELECT postcode, 'neighbour' AS type, X_lon AS lon, Y_lat AS lat,
                 (3959 * ACOS ( 
