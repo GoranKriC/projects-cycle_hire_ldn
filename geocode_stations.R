@@ -23,7 +23,7 @@ extract_uk_postcode <- function(uk_address){
 }
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
-stations <- dbGetQuery(db_conn, "SELECT station_id, `long`, lat FROM stations WHERE address = '' AND lat + `long` != 0")
+stations <- dbGetQuery(db_conn, "SELECT station_id, `long`, lat FROM stations WHERE ISNULL(address) AND lat + `long` <> 0")
 for(idx in 1:nrow(stations)){
     address <- revgeocode(c(stations[idx, 2], stations[idx, 3]) )
     postcode <- extract_uk_postcode(address)
