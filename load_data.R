@@ -2,12 +2,13 @@
 
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
 db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
-data.path <- '/home/datamaps/data/londonCycleHire/'
-if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/UK/LondonCycleHire/'
+data.path <- '/home/datamaps/data/UK/londonCycleHire/'
+if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/LondonCycleHire/'
 setwd(data.path)
 
 year_path <- '2017'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
+fstart <- 18
 records_processed <- 0
 for(fl in 1:length(filenames)){
     print(paste('Working on file', fl, 'out of', length(filenames) ) )
@@ -226,7 +227,7 @@ dbSendQuery(db_conn, paste("
 print('************************************************')
 print('UPDATE WEEKLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
 start_day <- dbGetQuery(db_conn, "SELECT MIN(DATEwd) FROM calendar WHERE DATEd >= 20170000")
-dbSendQuery(db_conn, paste("DELETE FROM smrM_seStations WHERE datefield >=", start_day))
+dbSendQuery(db_conn, paste("DELETE FROM smrW_seStations WHERE datefield >=", start_day))
 dbSendQuery(db_conn, paste("
     INSERT IGNORE INTO smrW_seStations
     	SELECT DATEwd AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
