@@ -10,7 +10,7 @@ year_path <- '2017'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
 fstart <- 18
 records_processed <- 0
-for(fl in 1:length(filenames)){
+for(fl in fstart:length(filenames)){
     print(paste('Working on file', fl, 'out of', length(filenames) ) )
     dataset <- fread(filenames[fl])
     setnames(dataset, c('rental_id', 'duration', 'bike_id', 'end_date', 'end_station_id', 'end_station_name', 'start_date', 'start_station_id', 'start_station_name'))
@@ -54,7 +54,7 @@ for(fl in 1:length(filenames)){
     dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpLoad")
     records_processed <- records_processed + nrow(dataset)
 }
-print(paste('Total records for the year: ', records_processed))
+print(paste('Total records processed: ', records_processed))
 
 ##################################################
 # CLEAN AND UPDATE ALL CONNECTED INFORMATION
