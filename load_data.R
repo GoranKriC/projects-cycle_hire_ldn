@@ -69,7 +69,7 @@ print('ADD/UPDATE OUTPUT AREA ID TO <stations>')
 dbSendQuery(db_conn, "
     UPDATE stations st 
         JOIN geo_postcodes pc ON pc.postcode = st.postcode 
-    SET st.OA_id = pc.OA_id
+    SET st.OA = pc.OA
 ")
 print('************************************************')
 print('DELETING RIDES FROM/TO "VOID" STATIONS ')
