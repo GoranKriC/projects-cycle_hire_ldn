@@ -32,21 +32,23 @@ strSQL <- "
 stations <- suppressWarnings(data.table(dbGetQuery(db_conn2, strSQL) ) )
 
 # Update distance and riding time using google maps API (ggmap)
-for(idx in 1:nrow(stations)){
-    print(paste('Search number', idx))
-    print(paste('Looking for distance and time between stations', stations[idx, .(start_station_id)], 'and', stations[idx, .(end_station_id)]))
-    orig <- paste(stations[idx, .(lats, longs)], collapse = ',')
-    dest <- paste(stations[idx, .(late, longe)], collapse = ',')
-    outg <- as.numeric(distance.driving.google(orig, dest))
-    strSQL <- paste(
-        "UPDATE distances SET distance =", outg[1],
-        ", time =", outg[2],
-        "WHERE start_station_id =", stations[idx, start_station_id],
-        "AND end_station_id =", stations[idx, end_station_id]
-    )
-    dbSendQuery(db_conn2, strSQL)
-    print(paste('Done! Distance is', outg[1], 'meters and time is', outg[2], 'seconds'))
-    Sys.sleep(runif(1, 0.05, 0.25))
+if(nrow(stations)){
+    for(idx in 1:nrow(stations)){
+        print(paste('Search number', idx))
+        print(paste('Looking for distance and time between stations', stations[idx, .(start_station_id)], 'and', stations[idx, .(end_station_id)]))
+        orig <- paste(stations[idx, .(lats, longs)], collapse = ',')
+        dest <- paste(stations[idx, .(late, longe)], collapse = ',')
+        outg <- as.numeric(distance.driving.google(orig, dest))
+        strSQL <- paste(
+            "UPDATE distances SET distance =", outg[1],
+            ", time =", outg[2],
+            "WHERE start_station_id =", stations[idx, start_station_id],
+            "AND end_station_id =", stations[idx, end_station_id]
+        )
+        dbSendQuery(db_conn2, strSQL)
+        print(paste('Done! Distance is', outg[1], 'meters and time is', outg[2], 'seconds'))
+        Sys.sleep(runif(1, 0.05, 0.25))
+    }
 }
 
 # BYE BYE ...
