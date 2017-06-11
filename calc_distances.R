@@ -8,21 +8,21 @@ distance.driving.google <- function(orig, dest){
     results[2] <- xmlValue(xmlChildren(xpathApply(xmlfile, "//duration")[[1]])$value)
     return(results)
 }
-db_conn2 = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
+db_conn2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
 # Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones)
 strSQL <- "
     INSERT IGNORE INTO distances
         SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
         FROM stations sts CROSS JOIN stations ste
-        WHERE sts.lat != 0 AND ste.lat != 0 AND sts.station_id != ste.station_id
+        WHERE sts.x_lat != 0 AND ste.x_lat != 0 AND sts.station_id != ste.station_id
         ORDER BY start_station_id, end_station_id
 "
 dbSendQuery(db_conn2, strSQL)
 
 # Extract from <distances> only the stations with a null distance
 strSQL <- "
-    SELECT dt.start_station_id, sts.lat as lats, sts.`long` as longs, dt.end_station_id, ste.lat as late, ste.`long` as longe
+    SELECT dt.start_station_id, sts.x_lat as lats, sts.y_lon as longs, dt.end_station_id, ste.x_lat as late, ste.y_lon as longe
     FROM distances dt
         JOIN stations sts ON sts.station_id = dt.start_station_id
         JOIN stations ste ON ste.station_id = dt.end_station_id
