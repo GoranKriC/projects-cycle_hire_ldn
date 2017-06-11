@@ -1,14 +1,17 @@
+##################################################
+# London cycle hire - data upload
+##################################################
 # This script process data from <http://cycling.data.tfl.gov.uk/>
 
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
-db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
+db_conn = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 data.path <- '/home/datamaps/data/UK/londonCycleHire/'
 if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/LondonCycleHire/'
 setwd(data.path)
 
 year_path <- '2017'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
-fstart <- 18
+fstart <- 21
 records_processed <- 0
 for(fl in fstart:length(filenames)){
     print(paste('Working on file', fl, 'out of', length(filenames) ) )
@@ -68,7 +71,7 @@ print('************************************************')
 print('ADD/UPDATE OUTPUT AREA ID TO <stations>')
 dbSendQuery(db_conn, "
     UPDATE stations st 
-        JOIN geo_postcodes pc ON pc.postcode = st.postcode 
+        JOIN london.postcodes pc ON pc.postcode = st.postcode 
     SET st.OA = pc.OA
 ")
 print('************************************************')
@@ -97,7 +100,7 @@ print('UPDATE <distances> TABLE WITH NEW STATIONS')
 if(Sys.info()[['sysname']] == 'Windows'){
     setwd('D:/R/projects/projects-london_cycle_hire/')
 } else {
-    setwd('/home/datamaps/projects-london_cycle_hire/')
+    setwd('/home/datamaps/projects/projects-london_cycle_hire/')
 }
 source('calc_distances.R')
 
@@ -128,7 +131,7 @@ dbSendQuery(db_conn, "UPDATE stations SET is_active = 1")
 dbSendQuery(db_conn, "
     UPDATE stations 
     SET is_active = 0
-    WHERE docks = 0 OR ISNULL(postcode) OR ISNULL(first_hire) OR first_hire = 0 OR last_hire < ( SELECT DATEd FROM calendar WHERE daysPast = 6 )
+    WHERE docks = 0 OR ISNULL(postcode) OR ISNULL(first_hire) OR first_hire = 0 OR last_hire < ( SELECT d0 FROM calendar WHERE days_past = 6 )
 ")
 print('**************************************************************************')
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR "SELF HIRES" IN <stations>') 
@@ -186,9 +189,9 @@ dbSendQuery(db_conn, "
 ##################################################
 print('************************************************')
 print('UPDATE DAILY SUMMARIES FROM STARTING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_sStations WHERE datefield > ", as.integer(year_path) * 10000))
+dbSendQuery(db_conn, paste("DELETE FROM smr_day_start WHERE datefield > ", as.integer(year_path) * 10000))
 dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_sStations 
+    INSERT IGNORE INTO smr_day_start
     	SELECT start_day AS datefield, start_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
     	FROM hires 
         WHERE start_day > ", as.integer(year_path) * 10000, "
@@ -196,9 +199,9 @@ dbSendQuery(db_conn, paste("
 "))
 print('************************************************')
 print('UPDATE DAILY SUMMARIES TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_eStations WHERE datefield > ", as.integer(year_path) * 10000))
+dbSendQuery(db_conn, paste("DELETE FROM smr_day_end WHERE datefield > ", as.integer(year_path) * 10000))
 dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_eStations 
+    INSERT IGNORE INTO smr_day_end 
     	SELECT end_day AS datefield, end_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
     	FROM hires 
         WHERE end_day > ", as.integer(year_path) * 10000, "
@@ -206,34 +209,34 @@ dbSendQuery(db_conn, paste("
 "))
 print('************************************************')
 print('UPDATE DAILY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_seStations WHERE datefield > ", as.integer(year_path) * 10000))
+dbSendQuery(db_conn, paste("DELETE FROM smr_day_start_end WHERE datefield > ", as.integer(year_path) * 10000))
 dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_seStations 
-    	SELECT start_day AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
+    INSERT IGNORE INTO smr_day_start_end 
+    	SELECT start_day AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
     	FROM hires
         WHERE start_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, sStation_id, eStation_id
+    	GROUP BY datefield, start_station_id, end_station_id
 "))
 print('************************************************')
 print('UPDATE MONTHLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smrM_seStations WHERE datefield > ", as.integer(year_path) * 100))
+dbSendQuery(db_conn, paste("DELETE FROM smr_month_start_end WHERE datefield > ", as.integer(year_path) * 100))
 dbSendQuery(db_conn, paste("
-    INSERT INTO smrM_seStations 
-    	SELECT LEFT(start_day, 6) AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
+    INSERT INTO smr_month_start_end 
+    	SELECT LEFT(start_day, 6) AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
     	FROM hires 
         WHERE start_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, sStation_id, eStation_id
+    	GROUP BY datefield, start_station_id, end_station_id
 "))
 print('************************************************')
 print('UPDATE WEEKLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-start_day <- dbGetQuery(db_conn, "SELECT MIN(DATEwd) FROM calendar WHERE DATEd >= 20170000")
-dbSendQuery(db_conn, paste("DELETE FROM smrW_seStations WHERE datefield >=", start_day))
+start_day <- as.numeric(dbGetQuery(db_conn, "SELECT MIN(w0d) FROM calendar WHERE d0 >= 20170000"))
+dbSendQuery(db_conn, paste("DELETE FROM smr_week_start_end WHERE datefield >=", start_day))
 dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smrW_seStations
-    	SELECT DATEwd AS datefield, start_station_id AS sStation_id, end_station_id AS eStation_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires h JOIN calendar c ON h.start_day = c.DATEd
+    INSERT IGNORE INTO smr_week_start_end
+    	SELECT w0d AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
+    	FROM hires h JOIN calendar c ON h.start_day = c.d0
         WHERE start_day >=", start_day, "
-    	GROUP BY DATEwd, sStation_id, eStation_id
+    	GROUP BY w0d, start_station_id, end_station_id
 "))
 
 

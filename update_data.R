@@ -1,7 +1,7 @@
 rm(list = ls())
 gc()
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
-db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
+db_conn = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
 # LOAD AND STRUCTURE DATA ------------------------------------------
 stations <- data.table(fromJSON(txt = 'https://api.tfl.gov.uk/bikepoint'), key = 'id')
@@ -29,42 +29,54 @@ stations <- cbind(
 stations$name <- NULL
 stations <- cbind(stations, tmp)
 rm(tmp)
-stations[, OA_id := '0']
-setnames(stations, c('station_id', 'lat', 'long', 'place', 'area', 'terminal_id', 'bikes', 'freeDocks', 'docks', 'OA_id'))
-setcolorder(stations, c('station_id', 'terminal_id', 'lat', 'long', 'OA_id', 'place', 'area', 'docks', 'freeDocks', 'bikes'))
+stations[, OA := '0']
+setnames(stations, c('station_id', 'x_lat', 'y_lon', 'place', 'area', 'terminal_id', 'bikes', 'free_docks', 'docks', 'OA'))
+setcolorder(stations, c('station_id', 'terminal_id', 'x_lat', 'y_lon', 'OA', 'place', 'area', 'docks', 'free_docks', 'bikes'))
 stations <- stations[order(station_id)]
 
 # UPDATE CURRENT ----------------------------------------------------
 time = substr(gsub('[^0-9]', '', Sys.time()), 3, 12)
-current <- cbind(day = substr(time, 1, 6), hour = substr(time, 7, 8), min = substr(time, 9, 10), stations[, .(station_id, freeDocks, bikes)])
-setkey(current, 'station_id')
-recent <- data.table(dbGetQuery(db_conn, 
-                "SELECT station_id, freeDocks AS recent FROM (SELECT station_id, freeDocks FROM current ORDER BY day DESC, hour DESC, min DESC) t GROUP BY station_id"
-          ), key = 'station_id')
-current <- current[recent][as.numeric(freeDocks) != recent ]
-current[, recent := NULL]
-current <- current[as.numeric(freeDocks) < 255 & as.numeric(bikes) < 255 ]
+current <- cbind(
+                day = substr(time, 1, 6), 
+                hour = substr(time, 7, 8), 
+                min = substr(time, 9, 10), 
+                stations[, .(station_id, free_docks, bikes)]
+)
+# setkey(current, 'station_id')
+# strSQL <- "
+#     SELECT station_id, ANY_VALUE(free_docks) AS recent 
+#     FROM (
+#         SELECT station_id, free_docks 
+#         FROM current 
+#         ORDER BY day DESC, hour DESC, min DESC
+#     ) t 
+#     GROUP BY station_id
+# "
+# recent <- data.table(dbGetQuery(db_conn, strSQL), key = 'station_id')
+# current <- current[recent][as.numeric(freeDocks) != recent ]
+# current[, recent := NULL]
+current <- current[as.numeric(free_docks) < 255 & as.numeric(bikes) < 255 ]
 dbWriteTable(db_conn, 'current', current, row.names = FALSE, append = TRUE)
 
 # UPDATE STATIONS AND DOCKS (ONLY JUST AFTER MIDNIGHT) -------------
 if(format(Sys.time(), '%H') == '00' & format(Sys.time(), '%M') < 15){
-    stations[, `:=`(freeDocks = NULL, bikes = NULL)]
-    dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpS")
-    dbWriteTable(db_conn, 'tmpS', stations, row.names = FALSE)
+    stations[, `:=`(free_docks = NULL, bikes = NULL)]
+    dbSendQuery(db_conn, "DROP TABLE IF EXISTS ttmp")
+    dbWriteTable(db_conn, 'ttmp', stations, row.names = FALSE)
     dbSendQuery(db_conn, "
-        INSERT IGNORE INTO stations (station_id, terminal_id, lat, `long`, place, area, docks)
-            SELECT station_id, terminal_id, lat, `long`, place, area, docks
-            FROM tmpS
+        INSERT IGNORE INTO stations (station_id, terminal_id, x_lat, y_lon, place, area, docks)
+            SELECT station_id, terminal_id, x_lat, y_lon, place, area, docks
+            FROM ttmp
     ")
     dbSendQuery(db_conn, "
         UPDATE stations st 
-           JOIN tmpS t ON st.station_id = t.station_id
+           JOIN ttmp t ON st.station_id = t.station_id
         SET st.docks = t.docks
     ")
     stations <- stations[docks > 0, .(station_id, docks)]
     setkey(stations, 'station_id')
     docks <- data.table(dbGetQuery(db_conn, "SELECT station_id, docks AS oldDocks FROM docks"), key = 'station_id')
-    stations <- docks[stations][oldDocks > 0][oldDocks != docks ]
+        stations <- docks[stations][oldDocks > 0][oldDocks != docks ]
     stations[, oldDocks := NULL]
     stations <- stations[, date_updated := as.numeric(format(Sys.Date(), '%Y%m%d')) ]
     setcolorder(stations, c('station_id', 'date_updated', 'docks'))
