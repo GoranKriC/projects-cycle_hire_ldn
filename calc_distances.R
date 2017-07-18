@@ -15,14 +15,14 @@ strSQL <- "
     INSERT IGNORE INTO distances
         SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
         FROM stations sts CROSS JOIN stations ste
-        WHERE sts.x_lat != 0 AND ste.x_lat != 0 AND sts.station_id != ste.station_id
+        WHERE sts.x_lon != 0 AND ste.y_lat != 0 AND sts.station_id != ste.station_id
         ORDER BY start_station_id, end_station_id
 "
 dbSendQuery(db_conn2, strSQL)
 
 # Extract from <distances> only the stations with a null distance
 strSQL <- "
-    SELECT dt.start_station_id, sts.x_lat as lats, sts.y_lon as longs, dt.end_station_id, ste.x_lat as late, ste.y_lon as longe
+    SELECT dt.start_station_id, sts.x_lon as longs, sts.y_lat as lats, dt.end_station_id, ste.x_lon as longe, ste.y_lat as late
     FROM distances dt
         JOIN stations sts ON sts.station_id = dt.start_station_id
         JOIN stations ste ON ste.station_id = dt.end_station_id
