@@ -1,12 +1,12 @@
 ##################################################
-# London cycle hire - data upload
+# London cycle hire - DATA PROCESSING
 ##################################################
 # This script process data from <http://cycling.data.tfl.gov.uk/>
 
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
-db_conn = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
-data.path <- '/home/datamaps/data/UK/londonCycleHire/'
-if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/LondonCycleHire/'
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+data.path <- '/home/datamaps/data/UK/cycle_hires/ldn/'
+if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/cycle_hires/ldn/'
 setwd(data.path)
 
 year_path <- '2017'
@@ -46,15 +46,15 @@ for(fl in fstart:length(filenames)){
     tmp[, place := trimws( substr(start_station_name, 1, regexpr(',', start_station_name) - 1 ) ) ]
     tmp[, area  := trimws( substr(start_station_name, regexpr(',', start_station_name) + 1, nchar(start_station_name) ) ) ]
     tmp$start_station_name <- NULL
-    dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpLoad")
-    dbWriteTable(db_conn, 'tmpLoad', tmp, row.names = FALSE)
-    dbSendQuery(db_conn, "UPDATE stations st JOIN tmpLoad t ON t.station_id = st.station_id SET st.place = t.place, st.area = t.area")
+    dbSendQuery(dbc, "DROP TABLE IF EXISTS tmpLoad")
+    dbWriteTable(dbc, 'tmpLoad', tmp, row.names = FALSE)
+    dbSendQuery(dbc, "UPDATE stations st JOIN tmpLoad t ON t.station_id = st.station_id SET st.place = t.place, st.area = t.area")
     dataset$start_station_name <- NULL
-    dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpLoad")
-    dbWriteTable(db_conn, 'tmpLoad', dataset, row.names = FALSE)
-    dbSendQuery(db_conn, "INSERT IGNORE INTO hires SELECT * FROM tmpLoad")
+    dbSendQuery(dbc, "DROP TABLE IF EXISTS tmpLoad")
+    dbWriteTable(dbc, 'tmpLoad', dataset, row.names = FALSE)
+    dbSendQuery(dbc, "INSERT IGNORE INTO hires SELECT * FROM tmpLoad")
     print(paste('Processed', nrow(dataset), 'records for file', fl))
-    dbSendQuery(db_conn, "DROP TABLE IF EXISTS tmpLoad")
+    dbSendQuery(dbc, "DROP TABLE IF EXISTS tmpLoad")
     records_processed <- records_processed + nrow(dataset)
 }
 print(paste('Total records processed: ', records_processed))
@@ -64,26 +64,26 @@ print(paste('Total records processed: ', records_processed))
 #
 print('************************************************')
 print('UPDATE <calendar> TABLE WITH NEW DATES')
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     CALL proc_fill_calendar();
 ")
 print('************************************************')
 print('ADD/UPDATE OUTPUT AREA ID TO <stations>')
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st 
         JOIN london.postcodes pc ON pc.postcode = st.postcode 
     SET st.OA = pc.OA
 ")
 print('************************************************')
 print('DELETING RIDES FROM/TO "VOID" STATIONS ')
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     DELETE h FROM hires h JOIN (
          SELECT station_id
          FROM stations
          WHERE area = 'void'
     ) t ON t.station_id = h.start_station_id
 ")
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     DELETE h FROM hires h JOIN (
          SELECT station_id
          FROM stations
@@ -91,9 +91,9 @@ dbSendQuery(db_conn, "
     ) t ON t.station_id = h.end_station_id
 ")
 print('************************************************')
-print('DELETING RIDES WITH DURATION = 0')
-dbSendQuery(db_conn, "
-    DELETE FROM hires WHERE duration = 0
+print('DELETING RIDES WITH DURATION <= 60')
+dbSendQuery(dbc, "
+    DELETE FROM hires WHERE duration <= 60
 ")
 print('************************************************')
 print('UPDATE <distances> TABLE WITH NEW STATIONS')
@@ -106,7 +106,7 @@ source('calc_distances.R')
 
 print('************************************************')
 print('UPDATE CNT OF HIRES AND AVG DURATION IN <distances>') # AVG(CASE WHEN duration < 86400 THEN duration ELSE 86400 END)) to limit single hire duration to 24h
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE distances dt JOIN (
         SELECT start_station_id, end_station_id, count(*) AS c, ROUND(AVG(duration)) as d
         FROM hires
@@ -117,7 +117,7 @@ dbSendQuery(db_conn, "
 ")
 print('************************************************')
 print('UPDATE first_hire, last_hire IN <stations>')
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN ( 
     	SELECT start_station_id, MIN(start_day) AS sd, MAX(start_day) AS ed 
     	FROM hires 
@@ -127,15 +127,15 @@ dbSendQuery(db_conn, "
 ")
 print('************************************************')
 print('UPDATE is_active IN <stations>')
-dbSendQuery(db_conn, "UPDATE stations SET is_active = 1")
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "UPDATE stations SET is_active = 1")
+dbSendQuery(dbc, "
     UPDATE stations 
     SET is_active = 0
     WHERE docks = 0 OR ISNULL(postcode) OR ISNULL(first_hire) OR first_hire = 0 OR last_hire < ( SELECT d0 FROM calendar WHERE days_past = 6 )
 ")
 print('**************************************************************************')
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR "SELF HIRES" IN <stations>') 
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN (
         SELECT start_station_id, COUNT(*) AS c, ROUND(AVG(duration)) AS d
         FROM hires
@@ -145,7 +145,7 @@ dbSendQuery(db_conn, "
     SET st.hires_self = t.c, st.duration_self = t.d
 ")
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR ALL STARTING HIRES IN <stations>') 
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN (
         SELECT start_station_id, COUNT(*) AS c, ROUND(AVG(duration)) AS d
         FROM hires
@@ -154,7 +154,7 @@ dbSendQuery(db_conn, "
     SET st.hires_started = t.c, st.duration_started = t.d
 ")
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR ALL ENDING HIRES IN <stations>') 
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN (
         SELECT end_station_id, COUNT(*) AS c, ROUND(AVG(duration)) AS d
         FROM hires
@@ -163,7 +163,7 @@ dbSendQuery(db_conn, "
     SET st.hires_ended = t.c, st.duration_ended = t.d
 ")
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR NOSELF STARTING HIRES IN <stations>') 
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN (
         SELECT start_station_id, COUNT(*) AS c, ROUND(AVG(duration)) AS d
         FROM hires
@@ -173,7 +173,7 @@ dbSendQuery(db_conn, "
     SET st.hires_started_noself = t.c, st.duration_started_noself = t.d
 ")
 print('UPDATE CNT OF HIRES AND AVG DURATION FOR NOSELF ENDING HIRES IN <stations>') 
-dbSendQuery(db_conn, "
+dbSendQuery(dbc, "
     UPDATE stations st JOIN (
         SELECT end_station_id, COUNT(*) AS c, ROUND(AVG(duration)) AS d
         FROM hires
@@ -183,66 +183,9 @@ dbSendQuery(db_conn, "
     SET st.hires_ended_noself = t.c, st.duration_ended_noself = t.d
 ")
 
-
-##################################################
-# CREATE SUMMARY TABLES FOR SHINY APPS
-##################################################
-print('************************************************')
-print('UPDATE DAILY SUMMARIES FROM STARTING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_day_start WHERE datefield > ", as.integer(year_path) * 10000))
-dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_day_start
-    	SELECT start_day AS datefield, start_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires 
-        WHERE start_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, station_id
-"))
-print('************************************************')
-print('UPDATE DAILY SUMMARIES TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_day_end WHERE datefield > ", as.integer(year_path) * 10000))
-dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_day_end 
-    	SELECT end_day AS datefield, end_station_id AS station_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires 
-        WHERE end_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, station_id
-"))
-print('************************************************')
-print('UPDATE DAILY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_day_start_end WHERE datefield > ", as.integer(year_path) * 10000))
-dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_day_start_end 
-    	SELECT start_day AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires
-        WHERE start_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, start_station_id, end_station_id
-"))
-print('************************************************')
-print('UPDATE MONTHLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-dbSendQuery(db_conn, paste("DELETE FROM smr_month_start_end WHERE datefield > ", as.integer(year_path) * 100))
-dbSendQuery(db_conn, paste("
-    INSERT INTO smr_month_start_end 
-    	SELECT LEFT(start_day, 6) AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires 
-        WHERE start_day > ", as.integer(year_path) * 10000, "
-    	GROUP BY datefield, start_station_id, end_station_id
-"))
-print('************************************************')
-print('UPDATE WEEKLY SUMMARIES FROM STARTING POINTS TO ENDING POINTS')
-start_day <- as.numeric(dbGetQuery(db_conn, "SELECT MIN(w0d) FROM calendar WHERE d0 >= 20170000"))
-dbSendQuery(db_conn, paste("DELETE FROM smr_week_start_end WHERE datefield >=", start_day))
-dbSendQuery(db_conn, paste("
-    INSERT IGNORE INTO smr_week_start_end
-    	SELECT w0d AS datefield, start_station_id, end_station_id, COUNT(*) AS hires, AVG(duration) AS duration
-    	FROM hires h JOIN calendar c ON h.start_day = c.d0
-        WHERE start_day >=", start_day, "
-    	GROUP BY w0d, start_station_id, end_station_id
-"))
-
-
-# BYE
+# CLEAN AND EXIT
 print('DONE!')
-dbDisconnect(db_conn)
+dbDisconnect(dbc)
 rm(list = ls())
 gc()
 
