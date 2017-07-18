@@ -25,3 +25,4 @@ vignettes/*.pdf
 .Rproj.user
 shiny_queries.R
 additional_queries.R
+map_data.R
