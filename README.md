@@ -1,7 +1,10 @@
 # London Cycle Hire
 
+The data has been processed to remove trips that:
+ - are taken to/from any of *test* stations 
+ - were below 60 seconds in length (potentially false starts or users trying to re-dock a bike to ensure it's secure).
 
-
+Milage estimates are calculated using an assumed speed of 7.456 miles per hour, up to two hours. Trips over two hours max-out at 14.9 miles.
 
 
 ### Credits
