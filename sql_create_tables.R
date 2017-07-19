@@ -40,8 +40,8 @@ strSQL = "
         PCA CHAR(2) NULL DEFAULT NULL COMMENT 'calculated as a <LEFT> from postcode' COLLATE 'utf8_unicode_ci',
         PRIMARY KEY (station_id),
         INDEX (terminal_id),
-        INDEX (OA),
         INDEX (is_active),
+        INDEX (OA),
         INDEX (LSOA),
         INDEX (MSOA),
         INDEX (LAD),
@@ -67,8 +67,6 @@ strSQL = "
     	hires SMALLINT(5) UNSIGNED NOT NULL DEFAULT '0',
     	duration INT(8) UNSIGNED NULL DEFAULT NULL COMMENT 'average in seconds',
     	PRIMARY KEY (start_station_id, end_station_id),
-    	INDEX (start_station_id),
-    	INDEX (end_station_id),
     	INDEX (distance) USING BTREE,
     	INDEX (time) USING BTREE,
     	INDEX (hires) USING BTREE,
@@ -109,9 +107,7 @@ strSQL = "
     	station_id SMALLINT(5) UNSIGNED NOT NULL,
     	date_updated INT(8) UNSIGNED NOT NULL,
     	docks TINYINT(3) UNSIGNED NOT NULL,
-    	PRIMARY KEY (station_id, date_updated),
-    	INDEX (station_id),
-    	INDEX (date_updated)
+    	PRIMARY KEY (station_id, date_updated)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -125,11 +121,7 @@ strSQL = "
     	station_id SMALLINT(3) UNSIGNED NOT NULL,
     	freeDocks TINYINT(3) UNSIGNED NOT NULL,
     	bikes TINYINT(3) UNSIGNED NOT NULL,
-    	PRIMARY KEY (day, hour, min, station_id),
-    	INDEX (day),
-    	INDEX (hour),
-    	INDEX (min),
-    	INDEX (station_id)
+    	PRIMARY KEY (day, hour, min, station_id)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -405,12 +397,10 @@ strSQL = "
     CREATE TABLE smr (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
     	datefield INT(8) UNSIGNED NOT NULL,
-    	bikes SMALLINT(5) UNSIGNED NOT NULL,
-    	hires INT(10) UNSIGNED NOT NULL,
-    	duration SMALLINT(5) UNSIGNED NOT NULL,
-    	PRIMARY KEY (datefield, datetype),
-    	INDEX (datefield),
-    	INDEX (datetype)
+    	bikes SMALLINT(5) NOT NULL,
+    	hires INT(10) NOT NULL,
+    	duration SMALLINT(5) NOT NULL,
+    	PRIMARY KEY (datetype, datefield)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -419,15 +409,12 @@ dbSendQuery(dbc, strSQL)
 strSQL = "
     CREATE TABLE smr_start (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
-    	datefield INT(8) UNSIGNED NOT NULL,
     	station_id SMALLINT(3) UNSIGNED NOT NULL,
-    	bikes SMALLINT(5) UNSIGNED NOT NULL,
-    	hires INT(10) UNSIGNED NOT NULL,
-    	duration MEDIUMINT(8) UNSIGNED NOT NULL,
-    	PRIMARY KEY (datetype, datefield, station_id),
-    	INDEX (datetype),
-    	INDEX (datefield),
-    	INDEX (station_id)
+    	datefield INT(8) UNSIGNED NOT NULL,
+    	bikes MEDIUMINT(6) NOT NULL,
+    	hires MEDIUMINT(6) NOT NULL,
+    	duration MEDIUMINT(6) NOT NULL,
+    	PRIMARY KEY (datetype, station_id, datefield)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -436,15 +423,12 @@ dbSendQuery(dbc, strSQL)
 strSQL = "
     CREATE TABLE smr_end (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
-    	datefield INT(8) UNSIGNED NOT NULL,
     	station_id SMALLINT(3) UNSIGNED NOT NULL,
-    	bikes SMALLINT(5) UNSIGNED NOT NULL,
-    	hires INT(10) UNSIGNED NOT NULL,
-    	duration MEDIUMINT(8) UNSIGNED NOT NULL,
-    	PRIMARY KEY (datetype, datefield, station_id),
-    	INDEX (datetype),
-    	INDEX (datefield),
-    	INDEX (station_id)
+    	datefield INT(8) UNSIGNED NOT NULL,
+    	bikes MEDIUMINT(6) NOT NULL,
+    	hires MEDIUMINT(6) NOT NULL,
+    	duration MEDIUMINT(6) NOT NULL,
+    	PRIMARY KEY (datetype, station_id, datefield)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -452,18 +436,14 @@ dbSendQuery(dbc, strSQL)
 ### SUMMARY TABLE: smr_start_end ------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr_start_end (
-    	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
-    	datefield INT(8) UNSIGNED NOT NULL,
+    	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1-year, 2-quarter, 3-month, 4-week, 5-day, 6-hour, 8-to_date, 9-in_date, 11-, 12-, 13-',
     	start_station_id SMALLINT(3) UNSIGNED NOT NULL,
     	end_station_id SMALLINT(3) UNSIGNED NOT NULL,
-    	bikes SMALLINT(5) UNSIGNED NOT NULL,
-    	hires INT(10) UNSIGNED NOT NULL,
-    	duration MEDIUMINT(8) UNSIGNED NOT NULL,
-    	PRIMARY KEY (datetype, datefield, start_station_id, end_station_id),
-    	INDEX (datetype),
-    	INDEX (datefield),
-    	INDEX (start_station_id),
-    	INDEX (end_station_id)
+    	datefield INT(8) UNSIGNED NOT NULL,
+    	bikes MEDIUMINT(7) NOT NULL,
+    	hires MEDIUMINT(7) NOT NULL,
+    	duration MEDIUMINT(7) NOT NULL,
+    	PRIMARY KEY (datetype, start_station_id, end_station_id, datefield)
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
