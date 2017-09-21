@@ -1,3 +1,6 @@
+##################################################
+# LONDON Cycle Hire - geocode stations
+##################################################
 lapply(c('RMySQL', 'ggmap', 'stringr'), require, character.only = TRUE)
 
 extract_uk_postcode <- function(uk_address){
@@ -21,37 +24,31 @@ extract_uk_postcode <- function(uk_address){
     }
     return(result)
 }
-db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'londonCycleHire')
 
-stations <- dbGetQuery(db_conn, "SELECT station_id, `long`, lat FROM stations WHERE ISNULL(address) AND lat + `long` <> 0")
-for(idx in 1:nrow(stations)){
-    address <- revgeocode(c(stations[idx, 2], stations[idx, 3]) )
-    postcode <- extract_uk_postcode(address)
-    strSQL <- paste( "
-        UPDATE stations SET address = '", gsub("'", "''", address), "'", 
-        ifelse(is.na(postcode), " NULL ", paste(", Gpostcode = '", postcode, "'", sep = '')), 
-        " WHERE station_id = ", stations[idx, 1],
-        sep = '' 
-    )
-    dbSendQuery(db_conn, strSQL)
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+
+stations <- dbGetQuery(dbc, "SELECT station_id, x_lon, y_lat FROM stations WHERE ISNULL(address) AND y_lat + x_lon <> 0")
+
+n_stn <- nrow(stations)
+
+if(n_stn){
+    for(idx in 1:n_stn){
+        print(paste('Working on station', idx, 'out of', n_stn ) )
+        address <- revgeocode(c(stations[idx, 2], stations[idx, 3]) )
+        postcode <- extract_uk_postcode(address)
+        strSQL <- paste( "
+            UPDATE stations SET address = '", gsub("'", "''", address), "'", 
+            ifelse(is.na(postcode), " NULL ", paste(", postcode = '", postcode, "'", sep = '')), 
+            " WHERE station_id = ", stations[idx, 1],
+            sep = '' 
+        )
+        dbSendQuery(dbc, strSQL)
+    }
+} else {
+    print('Nothing to do...')
 }
 
-# THIS PART IS FOR UPDATING ALL G-POSTCODES STARTING FROM ALREADY KNOWN ADDRESS
-# dbSendQuery(db_conn, "UPDATE stations SET Gpostcode = NULL")
-# stations <- dbGetQuery(db_conn, "SELECT station_id, address FROM stations WHERE address != ''")
-# for(idx in 1:nrow(stations)){
-#     postcode <- extract_uk_postcode(stations[idx, 2])
-#     if(!is.na(postcode)){
-#         strSQL <- paste("
-#             UPDATE stations 
-#             SET Gpostcode = '", postcode, "'", 
-#             " WHERE station_id = ", stations[idx, 1],
-#             sep = '' 
-#         )
-#         dbSendQuery(db_conn, strSQL)
-#     }
-# }
-
-dbDisconnect(db_conn)
+# Clean & Exit
+dbDisconnect(dbc)
 rm(list = ls())
 gc()
