@@ -1,3 +1,6 @@
+#########################################################################
+# LONDON Cycle Hire - calculate distances between each pair of stations
+#########################################################################
 lapply(c('data.table', 'RCurl', 'RMySQL', 'XML'), require, character.only = TRUE)
 
 distance.driving.google <- function(orig, dest){
@@ -8,9 +11,9 @@ distance.driving.google <- function(orig, dest){
     results[2] <- xmlValue(xmlChildren(xpathApply(xmlfile, "//duration")[[1]])$value)
     return(results)
 }
-db_conn2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+dbc2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
-# Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones)
+# Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones) -----------
 strSQL <- "
     INSERT IGNORE INTO distances
         SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
@@ -18,9 +21,9 @@ strSQL <- "
         WHERE sts.x_lon != 0 AND ste.y_lat != 0 AND sts.station_id != ste.station_id
         ORDER BY start_station_id, end_station_id
 "
-dbSendQuery(db_conn2, strSQL)
+dbSendQuery(dbc2, strSQL)
 
-# Extract from <distances> only the stations with a null distance
+# Extract from <distances> only the stations with a null distance ---------------------------------------------------------------
 strSQL <- "
     SELECT dt.start_station_id, sts.x_lon as longs, sts.y_lat as lats, dt.end_station_id, ste.x_lon as longe, ste.y_lat as late
     FROM distances dt
@@ -29,9 +32,9 @@ strSQL <- "
     WHERE dt.time = 0
     ORDER BY start_station_id, end_station_id
 "
-stations <- suppressWarnings(data.table(dbGetQuery(db_conn2, strSQL) ) )
+stations <- suppressWarnings(data.table(dbGetQuery(dbc2, strSQL) ) )
 
-# Update distance and riding time using google maps API (ggmap)
+# Update distance and riding time using google maps API (ggmap) -----------------------------------------------------------------
 if(nrow(stations)){
     for(idx in 1:nrow(stations)){
         print(paste('Search number', idx))
@@ -45,11 +48,11 @@ if(nrow(stations)){
             "WHERE start_station_id =", stations[idx, start_station_id],
             "AND end_station_id =", stations[idx, end_station_id]
         )
-        dbSendQuery(db_conn2, strSQL)
+        dbSendQuery(dbc2, strSQL)
         print(paste('Done! Distance is', outg[1], 'meters and time is', outg[2], 'seconds'))
         Sys.sleep(runif(1, 0.05, 0.25))
     }
 }
 
 # BYE BYE ...
-dbDisconnect(db_conn2)
+dbDisconnect(dbc2)
