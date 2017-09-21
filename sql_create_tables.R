@@ -1,16 +1,19 @@
+#######################################################
+# LONDON cycle hire - Create MySQL tables
+#######################################################
 library(RMySQL)
-london.locations
-# BASE TABLES: stations, distances, hires, current, docks, calendar -------------------------------------------------------------
 
+# lapply(dbListConnections(MySQL()), dbDisconnect) # one-liner to kill ALL db connections 
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
-### BASE TABLE: stations --------------------------------------------------------------------------------------------------------
+# BASE TABLES: stations, distances, hires, current, docks, calendar -------------------------------------------------------------
+## BASE TABLE: stations --------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE stations (
     	station_id SMALLINT(3) UNSIGNED NOT NULL COMMENT 'original from TFL',
         terminal_id CHAR(8) NULL DEFAULT NULL COMMENT 'original from TFL' COLLATE 'utf8_unicode_ci',
-        x_lon DECIMAL(8,6) UNSIGNED NULL DEFAULT NULL COMMENT 'original from TFL',
-        y_lat DECIMAL(8,6) NULL DEFAULT NULL COMMENT 'original from TFL',
+        x_lon DECIMAL(8,6) NULL DEFAULT NULL COMMENT 'original from TFL',
+        y_lat DECIMAL(8,6) UNSIGNED NULL DEFAULT NULL COMMENT 'original from TFL',
         address VARCHAR(250) NULL DEFAULT NULL COMMENT 'calculated from script <geocode_stations.R> using Google Maps API' COLLATE 'utf8_unicode_ci',
         postcode CHAR(7) NULL DEFAULT NULL COMMENT 'calculated from script <geocode_stations.R> as the minimum distance postcode from given coordinates' COLLATE 'utf8_unicode_ci',
         place VARCHAR(35) NOT NULL DEFAULT '\'\'' COMMENT 'original from TFL' COLLATE 'utf8_unicode_ci',
@@ -57,7 +60,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### BASE TABLE: distances -------------------------------------------------------------------------------------------------------
+## BASE TABLE: distances -------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE distances (
     	start_station_id SMALLINT(3) UNSIGNED NOT NULL,
@@ -75,7 +78,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### BASE TABLE: hires -----------------------------------------------------------------------------------------------------------
+## BASE TABLE: hires -----------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE hires (
     	rental_id INT(10) UNSIGNED NOT NULL,
@@ -101,7 +104,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### BASE TABLE: docks -----------------------------------------------------------------------------------------------------------
+## BASE TABLE: docks -----------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE docks (
     	station_id SMALLINT(5) UNSIGNED NOT NULL,
@@ -112,7 +115,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### BASE TABLE: current ---------------------------------------------------------------------------------------------------------
+## BASE TABLE: current ---------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE current (
     	day MEDIUMINT(8) UNSIGNED NOT NULL,
@@ -126,7 +129,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### BASE TABLE: calendar --------------------------------------------------------------------------------------------------------
+## BASE TABLE: calendar --------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE calendar (
     	datefield DATE NOT NULL,
@@ -392,7 +395,7 @@ dbSendQuery(dbc, strSQL)
 
 # SUMMARY TABLES: smr, smr_start, smr_end, smr_start_end ------------------------------------------------------------------------
 
-### SUMMARY TABLE: smr ----------------------------------------------------------------------------------------------------------
+## SUMMARY TABLE: smr ----------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
@@ -405,7 +408,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### SUMMARY TABLE: smr_start ----------------------------------------------------------------------------------------------------
+## SUMMARY TABLE: smr_start ----------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr_start (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
@@ -419,7 +422,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### SUMMARY TABLE: smr_end ------------------------------------------------------------------------------------------------------
+## SUMMARY TABLE: smr_end ------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr_end (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
@@ -433,7 +436,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-### SUMMARY TABLE: smr_start_end ------------------------------------------------------------------------------------------------
+## SUMMARY TABLE: smr_start_end ------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr_start_end (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1-year, 2-quarter, 3-month, 4-week, 5-day, 6-hour, 8-to_date, 9-in_date, 11-, 12-, 13-',
@@ -448,41 +451,34 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-dbDisconnect(dbc)
 
-# GEOGRAPHY (db: london): locations, oa_lookups, postcodes ----------------------------------------------------------------------
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london')
+# GEOGRAPHY TABLES: geo_postcodes, geo_locations, geo_lookups  ------------------------------------------------------------------
 
-### GEOGRAPHY TABLE:  -------------------------------------------------------------------------------------------
+## GEOGRAPHY TABLE: postcodes --------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_postcodes;")
 strSQL = "
-    CREATE TABLE locations (
-        location_id CHAR(9) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
-        name CHAR(75) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
-        type CHAR(4) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
-        parent CHAR(9) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+    CREATE TABLE geo_postcodes (
+        postcode CHAR(7) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+    	is_active TINYINT(1) UNSIGNED NOT NULL,
         x_lon DECIMAL(8,6) NOT NULL,
         y_lat DECIMAL(8,6) UNSIGNED NOT NULL,
-    	perimeter MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL,
-    	area INT(10) UNSIGNED NULL DEFAULT NULL,
-        PRIMARY KEY (location_id),
-        INDEX (type),
-        INDEX (parent)
-) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
+        OA CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
+        PCS CHAR(5) NOT NULL COLLATE 'utf8_unicode_ci',
+        PCD CHAR(4) NOT NULL COLLATE 'utf8_unicode_ci',
+        PCA CHAR(2) NOT NULL COLLATE 'utf8_unicode_ci',
+        PRIMARY KEY (postcode),
+        INDEX (OA),
+        INDEX (PCS),
+        INDEX (PCD),
+        INDEX (PCA)
+    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED
 "
 dbSendQuery(dbc, strSQL)
-locations <- c('LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'WARD', 'PCON', 'PCS', 'PCD', 'PCA')
-for(loca in locations){
-    strSQL = paste("
-        INSERT INTO locations
-            SELECT * 
-            FROM geography_uk.locations
-            WHERE location_id IN (SELECT DISTINCT", loca, "FROM geography_uk.oa_lookups WHERE RGN = 'E12000007' )
-    ")
-    dbSendQuery(dbc, strSQL)
-}
-### GEOGRAPHY TABLE: london.oa_lookups ---------------------------------------------------------
+
+## GEOGRAPHY TABLE: lookups ----------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_lookups;")
 strSQL = "
-    CREATE TABLE oa_lookups (
+    CREATE TABLE geo_lookups (
     	OA CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
     	x_lon DECIMAL(9,8) NOT NULL,
         y_lat DECIMAL(10,8) UNSIGNED NOT NULL,
@@ -510,43 +506,29 @@ strSQL = "
     ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED
 "
 dbSendQuery(dbc, strSQL)
-strSQL = "
-    INSERT INTO oa_lookups
-        SELECT OA, LSOA, MSOA, LAD, CTY, WARD, PCON, PCS, PCD, PCA
-        FROM geography.lookups
-        WHERE CTY IN ('E13000001', 'E13000002')
-"
-dbSendQuery(dbc, strSQL)
 
-### GEOGRAPHY TABLE: london.postcodes ---------------------------------------------------------
+## GEOGRAPHY TABLE: locations --------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_locations;")
 strSQL = "
-    CREATE TABLE london.postcodes (
-        postcode CHAR(7) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+    CREATE TABLE geo_locations (
+        location_id CHAR(9) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+        name CHAR(75) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+        type CHAR(4) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
+        parent CHAR(9) NOT NULL DEFAULT '' COLLATE 'utf8_unicode_ci',
         x_lon DECIMAL(8,6) NOT NULL,
         y_lat DECIMAL(8,6) UNSIGNED NOT NULL,
-        OA CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
-        PCS CHAR(5) NOT NULL COLLATE 'utf8_unicode_ci',
-        PCD CHAR(4) NOT NULL COLLATE 'utf8_unicode_ci',
-        PCA CHAR(2) NOT NULL COLLATE 'utf8_unicode_ci',
-        PRIMARY KEY (postcode),
-        INDEX (OA),
-        INDEX (PCS),
-        INDEX (PCD),
-        INDEX (PCA)
-    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-strSQL = "
-    INSERT INTO london.postcodes
-        SELECT postcode, pc.OA, x_lon, y_lat, 
-        FROM geography.postcodes pc 
-            JOIN london.oa_lookups gl ON gl.OA = pc.OA
+    	perimeter MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL,
+    	area INT(10) UNSIGNED NULL DEFAULT NULL,
+        PRIMARY KEY (location_id),
+        INDEX (type),
+        INDEX (parent)
+) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
 
+
+# Clean & Exit ------------------------------------------------------------------------------------------------------------------
 dbDisconnect(dbc)
-
-# BYE
 rm(list = ls())
 gc()
 
