@@ -1,3 +1,6 @@
+###############################################################################
+# LONDON cycle hire - Shiny app to check station postcode with its neighbours
+###############################################################################
 lapply(c('data.table', 'DT', 'leaflet', 'RMySQL', 'shiny'), require, character.only = TRUE)
 
 pal <- colorFactor(c('navy', 'red'), domain = c('station', 'neighbour') )
@@ -26,7 +29,6 @@ server <- function(input, output, session) {
     
     y <- stations[, .(
             station_id, 
-#            id = paste('<a href="http://maps.google.com/maps?z=18&t=m&q=loc:', y_lat, ',', x_lon, '" target="_blank">', station_id, '</a>', sep = ''), 
             address, 
             place, 
             area, 
@@ -46,7 +48,6 @@ server <- function(input, output, session) {
                 scrollY = 300,
                 scroller = TRUE,
                 searchHighlight = TRUE,
-         #       columnDefs = list( list(targets = 0, visible = FALSE) ),
                 initComplete = JS(
                     "function(settings, json) {",
                     "$(this.api().table().header()).css({'background-color': '#238443', 'color': '#fff'});",
