@@ -53,6 +53,9 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
+# SAVE stations as csv file
+stations <- dbReadTable(dbc, 'stations')
+write.csv(stations, 'stations.csv', row.names = FALSE)
 
 # Clean & Exit ------------------------------------------------------------------------------------------------------------------
 dbDisconnect(dbc)
