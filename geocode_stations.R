@@ -25,7 +25,13 @@ extract_uk_postcode <- function(uk_address){
     return(result)
 }
 
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
 stations <- dbGetQuery(dbc, "SELECT station_id, x_lon, y_lat FROM stations WHERE ISNULL(address) AND y_lat + x_lon <> 0")
 

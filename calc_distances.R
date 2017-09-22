@@ -11,7 +11,13 @@ distance.driving.google <- function(orig, dest){
     results[2] <- xmlValue(xmlChildren(xpathApply(xmlfile, "//duration")[[1]])$value)
     return(results)
 }
-dbc2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+# Retrieve db name
+dbc2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc2, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc2)
+
+# connect to database
+dbc2 = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
 # Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones) -----------
 strSQL <- "

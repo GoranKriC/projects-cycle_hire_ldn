@@ -4,7 +4,14 @@
 library(RMySQL)
 
 # lapply(dbListConnections(MySQL()), dbDisconnect) # one-liner to kill ALL db connections 
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# Connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
 # BASE TABLES: stations, distances, hires, current, docks, calendar -------------------------------------------------------------
 ## BASE TABLE: stations --------------------------------------------------------------------------------------------------------

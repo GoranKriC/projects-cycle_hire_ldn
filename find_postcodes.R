@@ -3,6 +3,11 @@
 ###############################################################################
 lapply(c('data.table', 'DT', 'leaflet', 'RMySQL', 'shiny'), require, character.only = TRUE)
 
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
 pal <- colorFactor(c('navy', 'red'), domain = c('station', 'neighbour') )
 
 strSQL <- "
@@ -11,7 +16,7 @@ strSQL <- "
     WHERE is_active AND area != 'void'
     ORDER BY postcode
 "
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 stations <- data.table(dbGetQuery(dbc, strSQL) )
 dbDisconnect(dbc)
 
@@ -82,7 +87,7 @@ server <- function(input, output, session) {
             ORDER BY distance 
             LIMIT 20;
         ")
-        dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+        dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
         tmp <- dbGetQuery(dbc,  strSQL)
         dbDisconnect(dbc)
         locations <- rbind(locations, tmp)
@@ -104,7 +109,7 @@ server <- function(input, output, session) {
         input$btnUpdate,
         {
             if(length(input$st_tbl_rows_selected ) == 0) return(NULL)
-            dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+            dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
             dbSendQuery(dbc, paste('UPDATE stations SET postcode = "', input$txtPostcode, '" WHERE station_id = ', selID(), sep = '') )
             dbDisconnect(dbc)
             updateTextInput(session, 'txtPostcode', value = '')
@@ -114,7 +119,7 @@ server <- function(input, output, session) {
     observeEvent(
         input$btnUpdateOA,
         {
-            dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+            dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
             dbSendQuery(dbc, "UPDATE stations st JOIN geo_postcodes pc ON pc.postcode = st.postcode SET st.OA = pc.OA")
             dbDisconnect(dbc)
         }

@@ -4,7 +4,13 @@
 # RGN = 'E12000007'
 # CTY IN ('E13000001', 'E13000002') ==> c("Inner London", "Outer London")
 
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# Connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
 # POSTCODES ---------------------------------------------------------------------------------------------------------------------
 dbSendQuery(dbc, "TRUNCATE TABLE geo_postcodes;")

@@ -4,7 +4,14 @@
 # This script process data from <http://cycling.data.tfl.gov.uk/>
 
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
 data.path <- '/home/datamaps/data/UK/cycle_hires/ldn/'
 if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/cycle_hires/ldn/'
@@ -106,9 +113,9 @@ dbSendQuery(dbc, "
 print('************************************************')
 print('UPDATE <distances> TABLE WITH NEW STATIONS')
 if(Sys.info()[['sysname']] == 'Windows'){
-    setwd('D:/R/projects/projects-london_cycle_hire/')
+    setwd(paste0('D:/R/projects/', db_name))
 } else {
-    setwd('/home/datamaps/projects/projects-london_cycle_hire/')
+    setwd(paste0('/home/datamaps/projects/projects-', db_name))
 }
 source('calc_distances.R')
 
