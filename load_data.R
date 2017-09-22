@@ -1,17 +1,18 @@
 ##################################################
-# London cycle hire - DATA PROCESSING
+# LONDON cycle hire - DATA PROCESSING
 ##################################################
 # This script process data from <http://cycling.data.tfl.gov.uk/>
 
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
+
 data.path <- '/home/datamaps/data/UK/cycle_hires/ldn/'
 if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/cycle_hires/ldn/'
 setwd(data.path)
 
 year_path <- '2017'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
-fstart <- 21
+fstart <- 28
 records_processed <- 0
 for(fl in fstart:length(filenames)){
     print(paste('Working on file', fl, 'out of', length(filenames) ) )
@@ -68,12 +69,19 @@ dbSendQuery(dbc, "
     CALL proc_fill_calendar();
 ")
 print('************************************************')
-print('ADD/UPDATE OUTPUT AREA ID TO <stations>')
-dbSendQuery(dbc, "
+print('UPDATE STATIONS with geo info from postcodes and lookups')
+strSQL = "
     UPDATE stations st 
-        JOIN london.postcodes pc ON pc.postcode = st.postcode 
-    SET st.OA = pc.OA
-")
+    	JOIN geo_postcodes pc ON st.postcode = pc.postcode
+    SET st.OA = pc.OA, st.PCS = pc.PCS, st.PCD = pc.PCD, st.PCA = pc.PCA 
+"
+dbSendQuery(dbc, strSQL)
+strSQL = "
+    UPDATE stations st 
+    	JOIN geo_lookups lk ON st.OA = lk.OA
+    SET st.LSOA = lk.LSOA, st.MSOA = lk.MSOA, st.LAD = lk.LAD, st.WARD = lk.WARD, st.PCON = lk.PCON
+"
+dbSendQuery(dbc, strSQL)
 print('************************************************')
 print('DELETING RIDES FROM/TO "VOID" STATIONS ')
 dbSendQuery(dbc, "
@@ -91,9 +99,9 @@ dbSendQuery(dbc, "
     ) t ON t.station_id = h.end_station_id
 ")
 print('************************************************')
-print('DELETING RIDES WITH DURATION <= 60')
+print('DELETING RIDES SAME STATIONS WITH DURATION <= 60')
 dbSendQuery(dbc, "
-    DELETE FROM hires WHERE duration <= 60
+    DELETE FROM hires WHERE duration <= 60 AND start_station_id = end_station_id
 ")
 print('************************************************')
 print('UPDATE <distances> TABLE WITH NEW STATIONS')
@@ -115,6 +123,19 @@ dbSendQuery(dbc, "
     ) t ON t.start_station_id = dt.start_station_id AND t.end_station_id = dt.end_station_id 
     SET dt.hires = t.c, dt.duration = t.d
 ")
+dbSendQuery(dbc, "
+    UPDATE distances
+    SET duration = NULL
+    WHERE hires = 0
+")
+dbSendQuery(dbc, "
+    DELETE from distances
+    WHERE 
+	 	start_station_id IN (SELECT station_id FROM stations WHERE area = 'void')
+	 		OR
+	 	end_station_id IN (SELECT station_id FROM stations WHERE area = 'void')
+")
+
 print('************************************************')
 print('UPDATE first_hire, last_hire IN <stations>')
 dbSendQuery(dbc, "
@@ -183,7 +204,14 @@ dbSendQuery(dbc, "
     SET st.hires_ended_noself = t.c, st.duration_ended_noself = t.d
 ")
 
-# CLEAN AND EXIT
+# SAVE stations and distances as csv files --------------------------------------------------------------------------------------
+stations <- dbReadTable(dbc, 'stations')
+write.csv(stations, 'stations.csv', row.names = FALSE)
+distances <- dbReadTable(dbc, 'distances')
+write.csv(distances, 'distances.csv', row.names = FALSE)
+
+
+# CLEAN AND EXIT  ---------------------------------------------------------------------------------------------------------------
 print('DONE!')
 dbDisconnect(dbc)
 rm(list = ls())
