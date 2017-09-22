@@ -16,9 +16,9 @@ dbc2 = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 # Fill <distances> with "new" stations (first create cross join of all valid stations, then insert only the new ones) -----------
 strSQL <- "
     INSERT IGNORE INTO distances
-        SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, 0
+        SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id, 0, 0, 0, NULL
         FROM stations sts CROSS JOIN stations ste
-        WHERE sts.x_lon != 0 AND ste.y_lat != 0 AND sts.station_id != ste.station_id
+        WHERE sts.area <> 'void' AND ste.area <> 'void' AND sts.station_id != ste.station_id 
         ORDER BY start_station_id, end_station_id
 "
 dbSendQuery(dbc2, strSQL)
