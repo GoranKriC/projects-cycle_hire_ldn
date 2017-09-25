@@ -1,7 +1,3 @@
-library(RMySQL)
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
-
-strSQL = "
     DELIMITER $$
 
     DROP PROCEDURE IF EXISTS proc_fill_calendar $$
@@ -161,8 +157,3 @@ strSQL = "
         END $$
         
     DELIMITER ; 
-"
-
-dbSendQuery(dbc, strSQL)
-dbDisconnect(dbc)
-rm(strSQL)
