@@ -1,90 +1,63 @@
-rm(list = ls())
-gc()
+#####################################################################
+# LONDON Cycle Hire - Live Data processing, cronjob every 5 mins
+#####################################################################
+
+# load packages
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
-db_conn = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
-# LOAD AND STRUCTURE DATA ------------------------------------------
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
+
+# load data from TFL
 stations <- data.table(fromJSON(txt = 'https://api.tfl.gov.uk/bikepoint'), key = 'id')
-tmp <- as.data.table(matrix(
-                        unlist(lapply(
-                            1:dim(stations)[1], 
-                            function(x) unlist(t(stations$additionalProperties[[x]][, 5][c(1, 7, 8, 9)]))
-                        )),
-                        ncol = 4, 
-                        byrow = TRUE
-      ))
-stations <- stations[, .(station_id = as.numeric(sub('BikePoints_', '', id)), name = commonName, lat, lon)]
-stations[name == 'Imperial Wharf Station', name := paste(name, ', Chelsea', sep = '') ]
-stations[nchar(name) - nchar(gsub(',', '', name)) == 0, name := paste(name, ', void', sep = '')]
-stations[nchar(name) - nchar(gsub(',', '', name)) > 1, name := substr(name, 1, gregexpr(pattern = ',', name)[[1]][2] - 1) ]
-stations[, name := gsub(' , ', ', ', name) ]
-stations <- cbind(
-              stations, 
-              apply(
-                  matrix(unlist(strsplit(stations$name,",")), ncol = 2, byrow = TRUE), 
-                  2, 
-                  function(x) gsub("^\\s+|\\s+$", "", x) 
-              )
-          )
-stations$name <- NULL
-stations <- cbind(stations, tmp)
-rm(tmp)
-stations[, OA := '0']
-setnames(stations, c('station_id', 'x_lat', 'y_lon', 'place', 'area', 'terminal_id', 'bikes', 'free_docks', 'docks', 'OA'))
-setcolorder(stations, c('station_id', 'terminal_id', 'x_lat', 'y_lon', 'OA', 'place', 'area', 'docks', 'free_docks', 'bikes'))
-stations <- stations[order(station_id)]
 
-# UPDATE CURRENT ----------------------------------------------------
-time = substr(gsub('[^0-9]', '', Sys.time()), 3, 12)
-current <- cbind(
-                day = substr(time, 1, 6), 
-                hour = substr(time, 7, 8), 
-                min = substr(time, 9, 10), 
-                stations[, .(station_id, free_docks, bikes)]
-)
-# setkey(current, 'station_id')
-# strSQL <- "
-#     SELECT station_id, ANY_VALUE(free_docks) AS recent 
-#     FROM (
-#         SELECT station_id, free_docks 
-#         FROM current 
-#         ORDER BY day DESC, hour DESC, min DESC
-#     ) t 
-#     GROUP BY station_id
-# "
-# recent <- data.table(dbGetQuery(db_conn, strSQL), key = 'station_id')
-# current <- current[recent][as.numeric(freeDocks) != recent ]
-# current[, recent := NULL]
-current <- current[as.numeric(free_docks) < 255 & as.numeric(bikes) < 255 ]
-dbWriteTable(db_conn, 'current', current, row.names = FALSE, append = TRUE)
+# Update CURRENT ----------------------------------------------------------------------------------------------------------------
+# extract from the list in the field "additionalProperties" the following info: [col 7: NbBikes; col 8: NbEmptyDocks; col 9: NbDocks]
+current <- as.data.table(cbind(
+                V1 = substr(gsub('[^0-9]', '', Sys.time()), 3, 12),
+                V2 = sub('BikePoints_', '', stations$id), 
+                matrix(
+                    unlist(lapply(
+                        1:dim(stations)[1], 
+                        function(x) unlist(t(stations$additionalProperties[[x]][, 5][7:9]))
+                    )),
+                    ncol = 3, 
+                    byrow = TRUE
+                )
+))
+# convert station_id for ordering
+current[, V2 := as.numeric(V2)]
+# change names to fields
+setnames(current, c('updated_at', 'station_id', 'bikes', 'free_docks', 'tot_docks'))
+# save dataset
+dbWriteTable(dbc, 'current', current[order(station_id)], append = TRUE, row.names = FALSE)
 
-# UPDATE STATIONS AND DOCKS (ONLY JUST AFTER MIDNIGHT) -------------
+# Update STATIONS (at midnight) --------------------------------------------------------------------------
 if(format(Sys.time(), '%H') == '00' & format(Sys.time(), '%M') < 15){
-    stations[, `:=`(free_docks = NULL, bikes = NULL)]
-    dbSendQuery(db_conn, "DROP TABLE IF EXISTS ttmp")
-    dbWriteTable(db_conn, 'ttmp', stations, row.names = FALSE)
-    dbSendQuery(db_conn, "
-        INSERT IGNORE INTO stations (station_id, terminal_id, x_lat, y_lon, place, area, docks)
-            SELECT station_id, terminal_id, x_lat, y_lon, place, area, docks
-            FROM ttmp
-    ")
-    dbSendQuery(db_conn, "
-        UPDATE stations st 
-           JOIN ttmp t ON st.station_id = t.station_id
-        SET st.docks = t.docks
-    ")
-    stations <- stations[docks > 0, .(station_id, docks)]
-    setkey(stations, 'station_id')
-    docks <- data.table(dbGetQuery(db_conn, "SELECT station_id, docks AS oldDocks FROM docks"), key = 'station_id')
-        stations <- docks[stations][oldDocks > 0][oldDocks != docks ]
-    stations[, oldDocks := NULL]
-    stations <- stations[, date_updated := as.numeric(format(Sys.Date(), '%Y%m%d')) ]
-    setcolorder(stations, c('station_id', 'date_updated', 'docks'))
-    dbWriteTable(db_conn, 'docks', stations, row.names = FALSE, append = TRUE)
+    # extract id, commonName, lat, lon, plus [col 1: terminalName] from the field "additionalProperties" 
+    stations <- as.data.table(cbind(
+                    station_id = sub('BikePoints_', '', stations$id), 
+                    terminal_id = sapply(1:dim(stations)[1], function(x) stations$additionalProperties[[x]][, 5][1]),
+                    x_lon = stations$lon,
+                    y_lat = stations$lat,
+                    address = stations$commonName
+    ))
+    # save dataset
+    dbWriteTable(dbc, 'stations', stations, overwrite = FALSE, append = TRUE, row.names = FALSE)
+    # update field "docks" in "stations" with field "tot_docks" from "current" 
+    dbSendQuery(dbc, "DROP TABLE IF EXISTS tmp")    
+    dbWriteTable(dbc, 'tmp', current[, .(station_id, tot_docks)], append = TRUE, row.names = FALSE)
+    dbSendQuery(dbc, "UPDATE stations s JOIN tmp t ON t.station_id = s.station_id SET s.docks = t.tot_docks")    
+    dbSendQuery(dbc, "DROP TABLE tmp")    
 }
 
-# BYE
-dbDisconnect(db_conn)
+# Clean & Exit ------------------------------------------------------------------------------------------------------------------
+dbDisconnect(dbc)
 rm(list = ls())
 gc()
 
