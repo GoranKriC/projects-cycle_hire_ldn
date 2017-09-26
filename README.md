@@ -8,19 +8,14 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
 
 ### Sequence
 
-  a. 
-  
+  1.
     1. 
     1. 
     1. 
-
-  a.
-  
+  1.  
     1. 
     1. 
-    
-  a.
-  
+  1.
     1. 
     1. 
 
