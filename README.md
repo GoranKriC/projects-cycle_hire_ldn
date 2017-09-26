@@ -1,3 +1,5 @@
+* >>> Thanks for visiting :-) This project is much work in progress at the moment <<< *
+
 # London Cycle Hire
 
 The data has been processed to remove trips that:
