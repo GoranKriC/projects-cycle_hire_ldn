@@ -7,16 +7,16 @@ The data has been processed to remove trips that:
 Milage estimates are calculated using an assumed speed of 7.456 miles per hour, up to two hours. Trips over two hours max-out at 14.9 miles.
 
 ### Sequence
- a. 
-   1. 
-   1. 
-   1. 
- a. 
-   1. 
-   1. 
- a. 
-   1. 
-   1. 
+  a. 
+    1. 
+    1. 
+    1. 
+  a. 
+    1. 
+    1. 
+  a. 
+    1. 
+    1. 
 
 ### Credits
 
