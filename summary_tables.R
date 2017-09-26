@@ -1,15 +1,25 @@
 ########################################################
-# London cycle hire - SUMMARY TABLES FOR SHINY APPS
+# LONDON cycle hire - SUMMARY TABLES FOR SHINY APPS
 ########################################################
 lapply(c('data.table', 'RMySQL'), require, character.only = TRUE)
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'london_cycle_hire')
 
+# Retrieve db name
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+dbDisconnect(dbc)
+
+# connect to database
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
+
+# define vars
 ts <- c('y0', 'qn', 'm0', 'w0', 'start_day')
 todate <- list(
     dtf = c(1:6, 11:16),
     now = c(2:5, 7, 9, 2:5, 7:8),
     prev = list( 3, 4, c(5, 6), c(6, 7), 8, 11:19, 11:12, 11:13, 11:14, 11:15, 11:17, 11:18)
 )
+
+# define functions
 get.x.pctround <- function(s1, s2) round(10000 * (s1 / s2 - 1))
 get.var.todate <- function(num, den, dtf, cols2grp = NULL){
     s1 <- dt[to_date <= num,   .(b1 = uniqueN(bike_id), h1 = .N, d1 = round(mean(duration))), cols2grp]
