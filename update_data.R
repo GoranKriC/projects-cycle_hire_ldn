@@ -5,9 +5,12 @@
 # load packages
 lapply(c('data.table', 'jsonlite', 'RMySQL'), require, character.only = TRUE)
 
+# set scheme
+scheme <- 1
+
 # Retrieve db name
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
-db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
+db_name <- dbGetQuery(dbc, paste("SELECT db_name FROM cycle_hires WHERE scheme_id =", scheme))[[1]]
 dbDisconnect(dbc)
 
 # connect to database
@@ -55,6 +58,26 @@ if(format(Sys.time(), '%H') == '00' & format(Sys.time(), '%M') < 15){
     dbSendQuery(dbc, "UPDATE stations s JOIN tmp t ON t.station_id = s.station_id SET s.docks = t.tot_docks")    
     dbSendQuery(dbc, "DROP TABLE tmp")    
 }
+
+# Update last24
+dbSendQuery(dbc, "TRUNCATE TABLE last24")
+strSQL <- "
+    INSERT INTO last24
+        SELECT * 
+        FROM current 
+        WHERE updated_at > (
+        	SELECT * 
+        	FROM (
+        		SELECT DISTINCT updated_at 
+        		FROM current
+        		ORDER BY updated_at desc
+        		LIMIT 300
+        	) t
+        	ORDER BY updated_at
+        	LIMIT 1
+        )
+"
+dbSendQuery(dbc, strSQL)
 
 # Clean & Exit ------------------------------------------------------------------------------------------------------------------
 dbDisconnect(dbc)
