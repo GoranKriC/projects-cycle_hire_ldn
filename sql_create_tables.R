@@ -111,17 +111,6 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-## BASE TABLE: docks -----------------------------------------------------------------------------------------------------------
-strSQL = "
-    CREATE TABLE docks (
-    	station_id SMALLINT(5) UNSIGNED NOT NULL,
-    	date_updated INT(8) UNSIGNED NOT NULL,
-    	docks TINYINT(3) UNSIGNED NOT NULL,
-    	PRIMARY KEY (station_id, date_updated)
-    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
-"
-dbSendQuery(dbc, strSQL)
-
 ## BASE TABLE: current ---------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE current (
