@@ -1,6 +1,6 @@
-* \>\>\> Thanks for visiting :-) This project is much work in progress at the moment <<< *
+Thanks for visiting :-) This project is much work in progress at the moment... 
 
-# London Cycle Hire
+## London Cycle Hire Schema
 
 The data has been processed to remove trips that:
  - are taken to/from any of *test* stations 
