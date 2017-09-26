@@ -11,6 +11,7 @@
 /*.Rcheck/
 # RStudio files
 .Rproj.user/
+*.Rproj
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf
@@ -23,6 +24,3 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 .Rproj.user
-shiny_queries.R
-additional_queries.R
-map_data.R
