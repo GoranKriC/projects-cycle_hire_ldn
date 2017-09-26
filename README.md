@@ -8,6 +8,7 @@ The data has been processed to remove trips that:
 
 Milage estimates are calculated using an assumed speed of 7.456 miles per hour, up to two hours. Trips over two hours max-out at 14.9 miles.
 
+
 ### Scripts sequence
 1. Set up 
     1. sql tables
@@ -20,6 +21,15 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
     1. find postcode.  
        When checking for the *best* postcode, the choice is made against *active* postcode, so the final choice could be different from what found on other web services, like Google Maps (see, for example, station 821, for which GM report a *terminated* postcode **SW118NR**, instead of the currently active **SW118NR**) 
     1. 
+1. Output Data
+    1. Stations.csv
+    1. Distances.csv
+    1. Summary.csv
+    1. SummaryS.csv
+    1. SummaryE.csv
+    1. SummarySE.csv  
+       This is too much information to store on GitHub. Ask me for  
+
 
 ### Credits
 
