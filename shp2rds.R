@@ -2,9 +2,31 @@
 # London cycle hire - boundaries conversion to rds format for quicker loading in Shiny apps
 ##############################################################################################
 
+get.bnd.names <- function(country){
+    dbc <- dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
+    strSQL <- paste0("SELECT path FROM paths WHERE name = 'boundaries' AND system = '", ifelse(grepl('linux', R.version$os), 'linux', 'win'), "'")
+    data.path <- dbGetQuery(dbc, strSQL)
+    data.path <- paste0(data.path, 'fst', '/', app.name, '/')
+    shp_names <- dbGetQuery(dbc, paste0("SELECT dataset FROM fst_shiny WHERE country = '", country, "'"))
+    dbDisconnect(dbc)
+    return( list(data.path, shp_names) )
+}
+
+shp2rds <- function(app.name){
+    lapply(c('rgdal', 'RMySQL', 'sp'), require, character.only = TRUE)
+    y <- get.fst.names(app.name)
+    dbc <- dbConnect(MySQL(), group = 'dataOps', dbname = app.name)
+    for(dtn in unlist(y[[2]])){
+        print(paste0('Reading ', dtn, '...'))
+        dt <- dbReadTable(dbc, dtn)
+        print(paste0('Writing ', dtn, '...'))
+        write.fst(dt, paste0(y[[1]], dtn, '.fst'), 100 )
+    }
+    dbDisconnect(dbc)
+}
+
+
 # load packages
-pkg <- c('rgdal', 'RMySQL', 'sp')
-invisible( lapply(pkg, require, character.only = TRUE) )
 loca.map <- c('CCG', 'LAT', 'NHSR', 'CCR', 'CTRY')
 
 # load additional datasets
@@ -22,7 +44,7 @@ for(m in loca.map){
 # save boundaries as RDS object
 saveRDS(boundaries, paste0(shp.path, '/boundaries.rds'))
 
-# clean and exit
-rm(list = ls())
-gc()
-
+### How  to read back fst files in the app as data.tables
+# lapply(c('fst', 'RMySQL'), require, character.only = TRUE)
+# country <- 'ldn'
+# y <- get.bnd.names(app.name)
