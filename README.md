@@ -30,6 +30,14 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
     1. SummarySE.csv  
        This is too much information to store on GitHub. Ask me for  
 
+### Data Modeling
+
+Factors potentially affecting bike usage:
+ - Weather: temperatures, rain, wind
+ - local terrain elevation
+
+
+
 
 ### Credits
 
@@ -45,6 +53,7 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
  - *boundaries...*
  - Commuter Work Flow. Census Data. **Source: Office for National Statistics**
  - *Weather Data...* ???
+ - Elevation data for the UK at a a resolution of 50 metres at [Ordnance Survey](https://www.ordnancesurvey.co.uk/opendatadownload/products.html#TERR50)
  - The overall design for the shiny app is adapted from [SuperZIP demo @ RStudio Shiny Example](http://github.com/rstudio/shiny-examples/blob/master/063-superzip-example/).
 
 
