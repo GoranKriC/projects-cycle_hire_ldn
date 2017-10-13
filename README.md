@@ -40,11 +40,12 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
    - Text to display: **Santander Cycles data supplied at (time) on (date) by Transport for London**
    - Use the Santander Cycles logo to represent the scheme on all applications and services
    - Use this cycle [pushpin icon](http://tfl.gov.uk/cdn/static/cms/images/promos/cycle-hire-pushpin-icon.gif) to indicate the location of Santander Cycles docking stations
- - postcodes.
- - OA.
- - boundaries.
- - Census Data. **Source: Office for National Statistics**
- - Design. Adapted from [SuperZIP demo @ RStudio Shiny Example](http://github.com/rstudio/shiny-examples/blob/master/063-superzip-example/).
+ - *postcodes...*
+ - *geographic lookups...*
+ - *boundaries...*
+ - Commuter Work Flow. Census Data. **Source: Office for National Statistics**
+ - *Weather Data...* ???
+ - The overall design for the shiny app is adapted from [SuperZIP demo @ RStudio Shiny Example](http://github.com/rstudio/shiny-examples/blob/master/063-superzip-example/).
 
 
 
