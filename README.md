@@ -19,7 +19,7 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
     1. load data
 1. EDA
     1. find postcode.  
-       When checking for the *best* postcode, the choice is made against *active* postcode, so the final choice could be different from what found on other web services, like Google Maps (see, for example, station 821, for which GM report a *terminated* postcode **SW118NR**, instead of the currently active **SW118NR**) 
+       When checking for the *best* postcode, the choice is made against *active* postcode, so the final choice could be different from what found on other web services, like Google Maps (see, for example, station 821, for which GM report a *terminated* postcode **SW8 4NN**, instead of the currently active **SW118NR**) 
     1. 
 1. Output Data
     1. Stations.csv
@@ -36,6 +36,7 @@ Milage estimates are calculated using an assumed speed of 7.456 miles per hour, 
  - Cycle Data.
    - Core datasets at [TFL](http://cycling.data.tfl.gov.uk/)
    - Live data at [TFL API](https://api.tfl.gov.uk/bikepoint)
+   - [List of all current bike stations](https://tfl.gov.uk/tfl/syndication/feeds/cycle-hire/livecyclehireupdates.xml)
    - Text to display: **Santander Cycles data supplied at (time) on (date) by Transport for London**
    - Use the Santander Cycles logo to represent the scheme on all applications and services
    - Use this cycle [pushpin icon](http://tfl.gov.uk/cdn/static/cms/images/promos/cycle-hire-pushpin-icon.gif) to indicate the location of Santander Cycles docking stations
