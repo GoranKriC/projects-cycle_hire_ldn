@@ -213,9 +213,9 @@ dbSendQuery(dbc, "
 
 # SAVE stations and distances as csv files --------------------------------------------------------------------------------------
 stations <- dbReadTable(dbc, 'stations')
-write.csv(stations, 'stations.csv', row.names = FALSE)
+write.csv(stations, 'csv/stations.csv', row.names = FALSE)
 distances <- dbReadTable(dbc, 'distances')
-write.csv(distances, 'distances.csv', row.names = FALSE)
+write.csv(distances, 'csv/distances.csv', row.names = FALSE)
 
 
 # CLEAN AND EXIT  ---------------------------------------------------------------------------------------------------------------
