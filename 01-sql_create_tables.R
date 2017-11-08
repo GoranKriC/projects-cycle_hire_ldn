@@ -1,19 +1,14 @@
 #######################################################
 # LONDON cycle hire - Create MySQL tables
 #######################################################
+
+# Load packages -------------------------------------------------------------------------------------------------------
 library(RMySQL)
 
-# lapply(dbListConnections(MySQL()), dbDisconnect) # one-liner to kill ALL db connections 
+# Connect to database -------------------------------------------------------------------------------------------------
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'cycle_hire_ldn')
 
-# Retrieve db name
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
-db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
-dbDisconnect(dbc)
-
-# Connect to database
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
-
-# BASE TABLES: stations, distances, hires, current, docks, calendar -------------------------------------------------------------
+# BASE TABLES: stations, distances, hires, current, docks, calendar ---------------------------------------------------
 ## BASE TABLE: stations --------------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE stations (
@@ -216,9 +211,9 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-# SUMMARY TABLES: smr, smr_start, smr_end, smr_start_end ------------------------------------------------------------------------
+# SUMMARY TABLES: smr, smr_start, smr_end, smr_start_end --------------------------------------------------------------
 
-## SUMMARY TABLE: smr ----------------------------------------------------------------------------------------------------------
+## SUMMARY TABLE: smr -------------------------------------------------------------------------------------------------
 strSQL = "
     CREATE TABLE smr (
     	datetype TINYINT(2) UNSIGNED NOT NULL COMMENT '1- year, 2- quarter, 3-month, 4- week, 5- day, 6- hour, 8- to_date, 9- in_date',
@@ -275,9 +270,9 @@ strSQL = "
 dbSendQuery(dbc, strSQL)
 
 
-# GEOGRAPHY TABLES: geo_postcodes, geo_locations, geo_lookups  ------------------------------------------------------------------
+# GEOGRAPHY TABLES: geo_postcodes, geo_locations, geo_lookups  --------------------------------------------------------
 
-## GEOGRAPHY TABLE: postcodes --------------------------------------------------------------------------------------------------
+## GEOGRAPHY TABLE: geo_postcodes --------------------------------------------------------------------------------------------------
 dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_postcodes;")
 strSQL = "
     CREATE TABLE geo_postcodes (
@@ -298,7 +293,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-## GEOGRAPHY TABLE: lookups ----------------------------------------------------------------------------------------------------
+## GEOGRAPHY TABLE: geo_lookups ----------------------------------------------------------------------------------------------------
 dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_lookups;")
 strSQL = "
     CREATE TABLE geo_lookups (
@@ -330,7 +325,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-## GEOGRAPHY TABLE: locations --------------------------------------------------------------------------------------------------
+## GEOGRAPHY TABLE: geo_locations --------------------------------------------------------------------------------------------------
 dbSendQuery(dbc, "DROP TABLE IF EXISTS geo_locations;")
 strSQL = "
     CREATE TABLE geo_locations (
@@ -349,8 +344,52 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
+# DIRECTIONS TABLES: routes, segments, stations_segments --------------------------------------------------------------
 
-# Clean & Exit ------------------------------------------------------------------------------------------------------------------
+## DIRECTIONS TABLE: routes --------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS routes;")
+strSQL = "
+    CREATE TABLE routes (
+    	route_id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+    	start_station_id SMALLINT(3) UNSIGNED NOT NULL,
+    	end_station_id SMALLINT(3) UNSIGNED NOT NULL,
+    	x_lon DECIMAL(8,6) NOT NULL,
+    	y_lat DECIMAL(8,6) UNSIGNED NOT NULL,
+    	PRIMARY KEY (route_id),
+    	INDEX (start_station_id),
+    	INDEX (end_station_id)
+    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
+"
+dbSendQuery(dbc, strSQL)
+
+## DIRECTIONS TABLE: segments --------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS segments;")
+strSQL = "
+    CREATE TABLE segments (
+    	segment_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    	x_lon1 DECIMAL(8,6) NOT NULL,
+    	y_lat1 DECIMAL(8,6) UNSIGNED NOT NULL,
+    	x_lon2 DECIMAL(8,6) NOT NULL,
+    	y_lat2 DECIMAL(8,6) UNSIGNED NOT NULL,
+    	PRIMARY KEY (segment_id)
+    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
+"
+dbSendQuery(dbc, strSQL)
+
+## DIRECTIONS TABLE: stations_segments --------------------------------------------------------------------------------------------------
+dbSendQuery(dbc, "DROP TABLE IF EXISTS stations_segments;")
+strSQL = "
+    CREATE TABLE stations_segments (
+    	start_station_id SMALLINT(3) UNSIGNED NOT NULL,
+    	end_station_id SMALLINT(3) UNSIGNED NOT NULL,
+    	segment_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    	PRIMARY KEY (start_station_id, end_station_id, segment_id)
+    ) COLLATE='utf8_unicode_ci' ENGINE=MyISAM ROW_FORMAT=FIXED;
+"
+dbSendQuery(dbc, strSQL)
+
+
+# Clean & Exit --------------------------------------------------------------------------------------------------------
 dbDisconnect(dbc)
 rm(list = ls())
 gc()
