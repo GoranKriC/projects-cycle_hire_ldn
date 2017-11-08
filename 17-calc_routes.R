@@ -6,13 +6,8 @@
 pkg <- c('data.table', 'mapsapi', 'RMySQL', 'sp')
 invisible(lapply(pkg, require, char = TRUE))
 
-# Retrieve db name
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
-db_name <- dbGetQuery(dbc, "SELECT db_name FROM common.cycle_hires WHERE scheme_id = 1")[[1]]
-dbDisconnect(dbc)
-
 # connect to database
-dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
+dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'cycle_hire_ldn')
 
 # load some data about stations
 strSQL <- "
@@ -20,7 +15,7 @@ strSQL <- "
     FROM stations 
     WHERE area <> 'void'
 "
-stations <- data.table(dbGetQuery(dbc, strSQL), key = 'station_id')
+stations <- data.table(dbGetQuery(dbc, strSQL))
 # load id couples for stations with route already stored
 routes <- data.table(dbGetQuery(dbc, "SELECT DISTINCT start_station_id, end_station_id FROM routes") )
 
@@ -35,17 +30,17 @@ if(nrow(stations)){
                 # print message 
                 message(
                     'Looking for route between stations (', 
-                    idx_A, ') ', stations[idx_A, name], ' and (', 
-                    idx_B, ') ', stations[idx_B, name]
+                    idx_A, ') ', stations[station_id == idx_A, name], ' and (', 
+                    idx_B, ') ', stations[station_id == idx_B, name]
                 )
                 # get coordinates
-                st_A <- stations[idx_A, .(x_lon, y_lat)]
-                st_B <- stations[idx_B, .(x_lon, y_lat)]
+                st_A <- stations[station_id == idx_A, .(x_lon, y_lat)]
+                st_B <- stations[station_id == idx_B, .(x_lon, y_lat)]
                 # get cycling directions between the two chosen stations
                 route = mp_directions(
                   origin = unlist(unname(st_A)),
                   destination = unlist(unname(st_B)),
-                  mode = 'bicycling'
+                  mode = 'bicycling' #, key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts'
                 )
                 # extract the route
                 route <- mp_get_routes(route)
@@ -56,7 +51,7 @@ if(nrow(stations)){
                 # save to database
                 dbWriteTable(dbc, 'routes', route, row.names = FALSE, append = TRUE)
                 # wait a bit to avoid being stopped by G
-                Sys.sleep(runif(1, 1.5, 2.25))
+                Sys.sleep(runif(1, 2, 3))
             }
         }
     }
@@ -66,5 +61,5 @@ if(nrow(stations)){
 dbDisconnect(dbc)
 
 # Clean and Exit
-# rm(list = ls())
-# gc()
+rm(list = ls())
+gc()
