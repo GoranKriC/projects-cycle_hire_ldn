@@ -30,7 +30,7 @@ dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'cycle_hire_ldn')
 strSQL <- "
     SELECT station_id
     FROM stations 
-    WHERE station_id NOT IN (SELECT DISTINCT start_station_id FROM routes) LIMIT 4 -- and area <> 'void'
+    WHERE station_id NOT IN (SELECT DISTINCT start_station_id FROM routes) and area <> 'void'
 "
 stations <- data.table(dbGetQuery(dbc, strSQL))
 if(nrow(stations) > 0){
@@ -40,7 +40,7 @@ if(nrow(stations) > 0){
                       substring(paste(stations, collapse = ','), 2) 
     )
     strSQL <- paste("
-        INSERT IGNORE INTO routes VALUES (start_station_id, end_station_id)
+        INSERT IGNORE INTO routes (start_station_id, end_station_id)
             SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id
             FROM stations sts CROSS JOIN stations ste
             WHERE sts.station_id IN ", new_stn, " AND sts.station_id != ste.station_id  
@@ -77,12 +77,12 @@ if(nrow(routes)){
         st_B <- stations[station_id == idx_B, .(x_lon, y_lat)]
         # get cycling directions between the two chosen stations
         result = mp_directions(
-          origin = unlist(unname(st_A)),
-          destination = unlist(unname(st_B)),
-          mode = 'bicycling',
-#                  key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts' # gmail
-#                  key = '' # datamaps
-           key = 'AIzaSyDBgPXNLtQXY_1_x-4Nor5h0TPhxEViDL0' # WeR
+                    origin = unlist(unname(st_A)),
+                    destination = unlist(unname(st_B)),
+                    mode = 'bicycling',
+#                    key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts' # gmail
+                    key = 'AIzaSyAxBOYgxl4FM2Sts2xiFMCAa1YNdnoNDQk' # datamaps
+#                    key = 'AIzaSyDBgPXNLtQXY_1_x-4Nor5h0TPhxEViDL0' # WeR
         )
         # extract the route
         route <- mp_get_routes(result)
