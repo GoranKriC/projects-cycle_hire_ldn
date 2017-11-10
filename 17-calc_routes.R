@@ -3,12 +3,51 @@
 #########################################################################
 
 # load packages
-pkg <- c('data.table', 'mapsapi', 'RMySQL', 'sp')
+pkg <- c('data.table', 'mapsapi', 'RMySQL', 'sf', 'sp')
 invisible(lapply(pkg, require, char = TRUE))
+
+# define functions
+get_segment_id <- function(x){
+    strSQL <- paste("
+        SELECT segment_id
+        FROM segments
+        WHERE x_lon1 =", x[, 1], "AND y_lat1 =", x[, 2], "AND x_lon2 =", x[, 3], "AND y_lat2 =", x[, 4]
+    )
+    as.numeric(dbGetQuery(dbc, strSQL))
+}
+reset_tables <- function(){
+    dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'cycle_hire_ldn')
+    dbSendQuery(dbc, "TRUNCATE TABLE routes_segments" )
+    dbSendQuery(dbc, "TRUNCATE TABLE segments" )
+    dbSendQuery(dbc, paste("UPDATE routes SET has_route = 0") )
+    dbDisconnect(dbc)
+}
 
 # connect to database
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = 'cycle_hire_ldn')
 
+# check for new stations
+strSQL <- "
+    SELECT station_id
+    FROM stations 
+    WHERE station_id NOT IN (SELECT DISTINCT start_station_id FROM routes) LIMIT 4 -- and area <> 'void'
+"
+stations <- data.table(dbGetQuery(dbc, strSQL))
+if(nrow(stations) > 0){
+    # Fill <routes> with "new" stations (cross join of all new stations)
+    new_stn <- ifelse(nrow(stations) == 1, 
+                      paste0('(', stations, ')'),
+                      substring(paste(stations, collapse = ','), 2) 
+    )
+    strSQL <- paste("
+        INSERT IGNORE INTO routes VALUES (start_station_id, end_station_id)
+            SELECT sts.station_id AS start_station_id, ste.station_id AS end_station_id
+            FROM stations sts CROSS JOIN stations ste
+            WHERE sts.station_id IN ", new_stn, " AND sts.station_id != ste.station_id  
+            ORDER BY start_station_id, end_station_id
+    ")
+    dbSendQuery(dbc, strSQL)
+}
 # load some data about stations
 strSQL <- "
     SELECT station_id, CONCAT(place, ', ', area) AS name, x_lon, y_lat 
@@ -16,44 +55,56 @@ strSQL <- "
     WHERE area <> 'void'
 "
 stations <- data.table(dbGetQuery(dbc, strSQL))
-# load id couples for stations with route already stored
-routes <- data.table(dbGetQuery(dbc, "SELECT DISTINCT start_station_id, end_station_id FROM routes") )
+# load id couples for stations without route stored
+routes <- data.table(dbGetQuery(dbc, "SELECT route_id, start_station_id, end_station_id FROM routes WHERE NOT has_route") )
 
 # Download routes using google maps API
-if(nrow(stations)){
-    for(idx_A in stations[, station_id]){
-        for(idx_B in stations[, station_id]){
-            # exit if A == B
-            if(idx_A == idx_B) next
-            # proceed only if A & B have not already been processed
-            if(!nrow(routes[start_station_id == idx_A & end_station_id == idx_B])){
-                # print message 
-                message(
-                    'Looking for route between stations (', 
-                    idx_A, ') ', stations[station_id == idx_A, name], ' and (', 
-                    idx_B, ') ', stations[station_id == idx_B, name]
-                )
-                # get coordinates
-                st_A <- stations[station_id == idx_A, .(x_lon, y_lat)]
-                st_B <- stations[station_id == idx_B, .(x_lon, y_lat)]
-                # get cycling directions between the two chosen stations
-                route = mp_directions(
-                  origin = unlist(unname(st_A)),
-                  destination = unlist(unname(st_B)),
-                  mode = 'bicycling' #, key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts'
-                )
-                # extract the route
-                route <- mp_get_routes(route)
-                # convert coordinates to data.frame, also adding ids of involved stations 
-                route <- cbind(idx_A, idx_B, as.data.frame(coordinates(as(route$geomerty, 'Spatial'))))
-                # set correct names
-                names(route) <- c('start_station_id', 'end_station_id', 'x_lon', 'y_lat')
-                # save to database
-                dbWriteTable(dbc, 'routes', route, row.names = FALSE, append = TRUE)
-                # wait a bit to avoid being stopped by G
-                Sys.sleep(runif(1, 2, 3))
-            }
-        }
+if(nrow(routes)){
+    for(idx in 1:nrow(routes)){
+        # get route id
+        route_id <- routes[idx, route_id]
+        # get stations ids
+        idx_A <- routes[idx, start_station_id]
+        idx_B <- routes[idx, end_station_id]
+        # print message 
+        message(
+            'Looking for route between stations (', 
+            idx_A, ') ', stations[station_id == idx_A, name], ' and (', 
+            idx_B, ') ', stations[station_id == idx_B, name]
+        )
+        # get coordinates
+        st_A <- stations[station_id == idx_A, .(x_lon, y_lat)]
+        st_B <- stations[station_id == idx_B, .(x_lon, y_lat)]
+        # get cycling directions between the two chosen stations
+        result = mp_directions(
+          origin = unlist(unname(st_A)),
+          destination = unlist(unname(st_B)),
+          mode = 'bicycling',
+#                  key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts' # gmail
+#                  key = '' # datamaps
+           key = 'AIzaSyDBgPXNLtQXY_1_x-4Nor5h0TPhxEViDL0' # WeR
+        )
+        # extract the route
+        route <- mp_get_routes(result)
+        # extract segments coordinates
+        sgm <- data.table(st_coordinates(route)[, 1:2])
+        # compose each segment on one row
+        sgm <- cbind(sgm[1:(nrow(sgm) - 1)], sgm[2:nrow(sgm)] ) 
+        # set correct names
+        setnames(sgm, c('x_lon1', 'y_lat1', 'x_lon2', 'y_lat2'))
+        # save segments to table
+        dbWriteTable(dbc, 'segments', sgm, row.names = FALSE, append = TRUE)
+        # retrieve ids
+        rt_sgm <- data.table( 
+                        route_id = route_id, 
+                        segment_id = vapply(1:nrow(sgm), FUN.VALUE = numeric(1), function(x) get_segment_id(sgm[x])) 
+        )
+        # save route segments to table
+        dbWriteTable(dbc, 'routes_segments', rt_sgm, row.names = FALSE, append = TRUE)
+        # update has_route in routes table
+        dbSendQuery(dbc, paste("UPDATE routes SET has_route = 1 WHERE route_id =", route_id) )
+        # wait a bit to avoid being stopped by G
+        # Sys.sleep(runif(1, 2, 3))
     }
 }
 
