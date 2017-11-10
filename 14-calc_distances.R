@@ -1,3 +1,8 @@
+#
+# >>> > > >  DEPRECATED  < < < <<<
+#
+# Now distances and durations are calculated by segments. See file "18-calc_segments.R"
+#
 #########################################################################
 # LONDON Cycle Hire - calculate distances between each pair of stations
 #########################################################################
