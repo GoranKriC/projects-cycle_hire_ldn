@@ -1,7 +1,6 @@
 #########################################################################
 # LONDON Cycle Hire - 17. Calculate routes between each pair of stations
-#########################################################################
-
+######################################################################### 
 # load packages
 pkg <- c('data.table', 'mapsapi', 'RMySQL', 'sf', 'sp')
 invisible(lapply(pkg, require, char = TRUE))
@@ -79,10 +78,8 @@ if(nrow(routes)){
         result = mp_directions(
                     origin = unlist(unname(st_A)),
                     destination = unlist(unname(st_B)),
-                    mode = 'bicycling',
-#                    key = 'AIzaSyAFS_yQ59JGPgvanKiobYYr20FCFrDbhts' # gmail
-                    key = 'AIzaSyAxBOYgxl4FM2Sts2xiFMCAa1YNdnoNDQk' # datamaps
-#                    key = 'AIzaSyDBgPXNLtQXY_1_x-4Nor5h0TPhxEViDL0' # WeR
+                    mode = 'bicycling'
+#                    key = ''
         )
         # extract the route
         route <- mp_get_routes(result)
@@ -104,7 +101,7 @@ if(nrow(routes)){
         # update has_route in routes table
         dbSendQuery(dbc, paste("UPDATE routes SET has_route = 1 WHERE route_id =", route_id) )
         # wait a bit to avoid being stopped by G
-        # Sys.sleep(runif(1, 2, 3))
+        Sys.sleep(runif(1, 0.4, 1.2))
     }
 }
 

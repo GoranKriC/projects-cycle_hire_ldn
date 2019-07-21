@@ -17,9 +17,9 @@ data.path <- '/home/datamaps/data/UK/cycle_hires/ldn/'
 if(Sys.info()[['sysname']] == 'Windows') data.path <- 'D:/cloud/onedrive/data/UK/cycle_hires/ldn/'
 setwd(data.path)
 
-year_path <- '2017'
+year_path <- '2018'
 filenames <- list.files(year_path, pattern = '*.csv', full.names = TRUE)
-fstart <- 28
+fstart <- 1
 records_processed <- 0
 for(fl in fstart:length(filenames)){
     print(paste('Working on file', fl, 'out of', length(filenames) ) )
@@ -46,7 +46,7 @@ for(fl in fstart:length(filenames)){
           'end_station_id', 'end_day', 'end_hour', 'end_min', 
           'duration'
     ))
-    ### detect and save new stations and/or new info for old stations
+    ### detect and save possible info on new stations (old stations are no more updated automatically)
     tmp <- unique(dataset[, .(station_id = start_station_id, start_station_name)])
     for(idx in 1:nrow(tmp)){
         if(length(grep(',', tmp$start_station_name[idx])) == 0) tmp$start_station_name[idx] <- paste(tmp$start_station_name[idx], ', void')
@@ -56,7 +56,7 @@ for(fl in fstart:length(filenames)){
     tmp$start_station_name <- NULL
     dbSendQuery(dbc, "DROP TABLE IF EXISTS tmpLoad")
     dbWriteTable(dbc, 'tmpLoad', tmp, row.names = FALSE)
-    dbSendQuery(dbc, "UPDATE stations st JOIN tmpLoad t ON t.station_id = st.station_id SET st.place = t.place, st.area = t.area")
+    dbSendQuery(dbc, "UPDATE stations st JOIN tmpLoad t ON t.station_id = st.station_id SET st.place = t.place, st.area = t.area WHERE t.area = 'void'")
     dataset$start_station_name <- NULL
     dbSendQuery(dbc, "DROP TABLE IF EXISTS tmpLoad")
     dbWriteTable(dbc, 'tmpLoad', dataset, row.names = FALSE)
@@ -111,32 +111,32 @@ dbSendQuery(dbc, "
     DELETE FROM hires WHERE duration <= 60 AND start_station_id = end_station_id
 ")
 print('************************************************')
-print('UPDATE <distances> TABLE WITH NEW STATIONS')
+print('UPDATE <routes> TABLE WITH NEW STATIONS')
 if(Sys.info()[['sysname']] == 'Windows'){
     setwd(paste0('D:/R/projects/', db_name))
 } else {
     setwd(paste0('/home/datamaps/projects/projects-', db_name))
 }
-source('calc_distances.R')
+
 
 print('************************************************')
-print('UPDATE CNT OF HIRES AND AVG DURATION IN <distances>') # AVG(CASE WHEN duration < 86400 THEN duration ELSE 86400 END)) to limit single hire duration to 24h
+print('UPDATE CNT OF HIRES AND AVG DURATION IN <routes>') # AVG(CASE WHEN duration < 86400 THEN duration ELSE 86400 END)) to limit single hire duration to 24h
 dbSendQuery(dbc, "
-    UPDATE distances dt JOIN (
+    UPDATE routes rt JOIN (
         SELECT start_station_id, end_station_id, count(*) AS c, ROUND(AVG(duration)) as d
         FROM hires
         WHERE start_station_id != end_station_id
         GROUP BY start_station_id, end_station_id
-    ) t ON t.start_station_id = dt.start_station_id AND t.end_station_id = dt.end_station_id 
-    SET dt.hires = t.c, dt.duration = t.d
+    ) t ON t.start_station_id = rt.start_station_id AND t.end_station_id = rt.end_station_id 
+    SET rt.hires = t.c, rt.duration = t.d
 ")
 dbSendQuery(dbc, "
-    UPDATE distances
+    UPDATE routes
     SET duration = NULL
     WHERE hires = 0
 ")
 dbSendQuery(dbc, "
-    DELETE from distances
+    DELETE from routes
     WHERE 
 	 	start_station_id IN (SELECT station_id FROM stations WHERE area = 'void')
 	 		OR
@@ -211,11 +211,11 @@ dbSendQuery(dbc, "
     SET st.hires_ended_noself = t.c, st.duration_ended_noself = t.d
 ")
 
-# SAVE stations and distances as csv files --------------------------------------------------------------------------------------
+# SAVE stations and routes as csv files --------------------------------------------------------------------------------------
 stations <- dbReadTable(dbc, 'stations')
 write.csv(stations, 'csv/stations.csv', row.names = FALSE)
-distances <- dbReadTable(dbc, 'distances')
-write.csv(distances, 'csv/distances.csv', row.names = FALSE)
+routes <- dbReadTable(dbc, 'routes')
+write.csv(routes, 'csv/routes.csv', row.names = FALSE)
 
 
 # CLEAN AND EXIT  ---------------------------------------------------------------------------------------------------------------

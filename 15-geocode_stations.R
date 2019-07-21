@@ -33,7 +33,7 @@ dbDisconnect(dbc)
 # connect to database
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)
 
-stations <- dbGetQuery(dbc, "SELECT station_id, x_lon, y_lat FROM stations WHERE ISNULL(address) AND y_lat + x_lon <> 0")
+stations <- dbGetQuery(dbc, "SELECT station_id, x_lon, y_lat FROM stations WHERE area = 'void' AND y_lat + x_lon <> 0")
 
 n_stn <- nrow(stations)
 
@@ -44,7 +44,7 @@ if(n_stn){
         postcode <- extract_uk_postcode(address)
         strSQL <- paste( "
             UPDATE stations SET address = '", gsub("'", "''", address), "'", 
-            ifelse(is.na(postcode), " NULL ", paste(", postcode = '", postcode, "'", sep = '')), 
+            ifelse(is.na(postcode), "", paste(", postcode = '", postcode, "'", sep = '')), 
             " WHERE station_id = ", stations[idx, 1],
             sep = '' 
         )

@@ -13,7 +13,7 @@ pal <- colorFactor(c('navy', 'red'), domain = c('station', 'neighbour') )
 strSQL <- "
     SELECT * 
     FROM stations 
-    WHERE is_active AND area != 'void'
+    WHERE is_active
     ORDER BY postcode
 "
 dbc = dbConnect(MySQL(), group = 'dataOps', dbname = db_name)

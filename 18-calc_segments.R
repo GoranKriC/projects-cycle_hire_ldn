@@ -3,12 +3,16 @@
 #########################################################################
 
 # load packages
-pkg <- c('data.table', 'RMySQL')
+pkg <- c('data.table', 'RCurl', 'RMySQL', 'XML')
 invisible(lapply(pkg, require, char = TRUE))
 
 # define functions
 distance.driving.google <- function(orig, dest){
-    xml.url <- paste('http://maps.googleapis.com/maps/api/distancematrix/xml?origins=', orig, '&destinations=', dest, '&mode=bicycling&sensor=false', sep = '')
+    xml.url <- paste0(
+                'http://maps.googleapis.com/maps/api/distancematrix/xml?origins=', orig, 
+                '&destinations=', dest, 
+                '&mode=bicycling&sensor=false'
+    )
     xmlfile <- xmlParse(getURL(xml.url))
     results <- numeric(2)
     results[1] <- xmlValue(xmlChildren(xpathApply(xmlfile, "//distance")[[1]])$value)
@@ -33,9 +37,9 @@ for(idx in 1:nrow(sgm)){
     ))
     # save values to database
     strSQL <- paste("
-        UPDATE segments 
-        SET length = ", msr[1], ", duration = ", msr[2], "
-        WHERE segment_id = ", sgm[idx, segment_id]
+                UPDATE segments 
+                SET length = ", msr[1], ", duration = ", msr[2], "
+                WHERE segment_id = ", sgm[idx, segment_id]
     )
     dbSendQuery(dbc, strSQL)
 }
